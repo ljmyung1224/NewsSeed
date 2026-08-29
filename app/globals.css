@@ -21,6 +21,8 @@
 
 /* Keep carousel controls clear of the card's rounded bottom corners. */
 .news-card-nav{margin-right:12px;margin-left:12px}
+/* The home sidebar's final legacy exploration card is replaced by the seed library link. */
+aside > section:last-child{display:none}
 @media (max-width:1023px){.news-card-nav{margin-right:6px;margin-left:6px}}
 
 .article-lead{font-family:var(--font-body),"Apple SD Gothic Neo","Noto Sans KR",sans-serif;max-width:38rem}
