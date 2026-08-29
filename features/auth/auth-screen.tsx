@@ -58,7 +58,7 @@ export function AuthScreen({ configured, sampleArticles: availableSamples, onCon
               return <article key={article.id} className="news-deck-card" aria-hidden={position !== 0} style={{ "--news-position": position, "--article-accent": article.color, "--article-soft": `${article.color}12` } as CSSProperties}>
                 <div className="news-card-peek"><span>{article.emoji}</span><b>{article.category}</b></div>
                 {position === 0 && <div key={`${article.id}-${slideDirection}`} className={`news-card-content sample-news-${slideDirection}`}>
-                  <header className="news-card-header"><div><p>TODAY&apos;S NEWSEED</p><h2>오늘의 뉴씨드</h2></div><span>🌱</span></header>
+                  <header className="news-card-header"><div><p>TODAY&apos;S NewsSeed</p><h2>오늘의 뉴씨드</h2></div><span>🌱</span></header>
                   <div className="news-card-body">
                     <div className="news-card-meta"><span style={{ backgroundColor: `${article.color}18`, color: article.color }}>{article.emoji} {article.category}</span><b>{gradeLabels[article.difficulty]} · {article.estimatedReadingTime}분</b></div>
                     <h3>{article.kidContent.title}</h3>
@@ -78,7 +78,7 @@ export function AuthScreen({ configured, sampleArticles: availableSamples, onCon
       <aside className="landing-login lg:sticky lg:top-4">
         <section className="landing-login-card w-full rounded-[26px] border border-[var(--line)] bg-white p-6 text-center shadow-[0_6px_0_#e2e9e4] sm:p-7 lg:rounded-[30px] lg:p-7">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-[18px] bg-[var(--green-soft)] text-2xl">👋</span>
-          <p className="eyebrow mt-3">WELCOME TO NEWSEED</p>
+          <p className="eyebrow mt-3">WELCOME TO NewsSeed</p>
           <h2 className="type-display mt-1.5 text-[28px] leading-[1.25] lg:text-[30px]">뉴씨드에 오신 걸<br/>환영해요!</h2>
           <p className="mx-auto mt-2 max-w-xs text-sm font-medium leading-[1.55] text-[var(--muted)]">로그인하고 아이에게 맞는<br/>오늘의 뉴스를 시작해 볼까요?</p>
           <p className="mt-2.5 text-xs font-extrabold text-[var(--green-deep)]">3분이면 오늘의 뉴스 한 장을 읽을 수 있어요.</p>
