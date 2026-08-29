@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import type { AppState, Article, UserProfile } from "@/types";
+import type { AppState, Article, UserPreferences } from "@/types";
 import { selectDailyNews } from "@/services/news/selectDailyNews";
 import { TODAY } from "@/lib/date";
 import { clearAnonymousState, completeArticle, completeDay, initialStats, loadState, saveState, STORAGE_KEY } from "@/lib/storage";
@@ -15,11 +15,13 @@ import { loadCloudState, saveCloudState } from "@/services/user/userState";
 type Screen = { name: "home" } | { name: "lesson"; index: number } | { name: "complete" };
 export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: Article[]; authEnabled: boolean }) {
   const [state, setState] = useState<AppState>({ profile: null, stats: initialStats });
+  const [availableArticles, setAvailableArticles] = useState(initialArticles);
   const [ready, setReady] = useState(false);
   const [screen, setScreen] = useState<Screen>({ name: "home" });
+  const [guestMode, setGuestMode] = useState(false);
   const { user, ready: authReady } = useAuth(authEnabled);
   useEffect(() => {
-    if (!authReady || (authEnabled && !user)) return;
+    if (!authReady || (!user && !guestMode)) return;
     let active = true;
     const timer = window.setTimeout(async () => {
       const accountState = loadState(user?.id);
@@ -36,7 +38,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
       }
     }, 0);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [authEnabled, authReady, user]);
+  }, [authReady, guestMode, user]);
   useEffect(() => {
     if (!ready) return;
     saveState(state, user?.id);
@@ -44,11 +46,21 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
     const timer = window.setTimeout(() => { void saveCloudState(user.id, state); }, 350);
     return () => window.clearTimeout(timer);
   }, [state, ready, user]);
-  const articles = useMemo(() => selectDailyNews(initialArticles, state.profile?.interests ?? []), [initialArticles, state.profile?.interests]);
+  useEffect(() => {
+    if (!ready || !state.profile) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ difficulty: state.profile.gradeLevel, readingLevel: state.profile.readingLevel, explanationLevel: state.profile.explanationLevel, count: String(state.profile.dailyArticleCount), interests: state.profile.interests.join(",") });
+    fetch(`/api/daily-news?${params}`, { signal: controller.signal })
+      .then(response => response.ok ? response.json() as Promise<{ articles: Article[] }> : Promise.reject(new Error(`Daily news responded with ${response.status}`)))
+      .then(data => { if (data.articles.length === state.profile?.dailyArticleCount) setAvailableArticles(data.articles); })
+      .catch(error => { if (error instanceof Error && error.name !== "AbortError") console.error("[NewsSeed] Using initial mock news.", error); });
+    return () => controller.abort();
+  }, [ready, state.profile]);
+  const articles = useMemo(() => selectDailyNews(availableArticles, state.profile?.interests ?? [], state.profile?.dailyArticleCount ?? 3), [availableArticles, state.profile?.dailyArticleCount, state.profile?.interests]);
   if (!authReady) return <LoadingScreen label="로그인 정보를 확인하는 중"/>;
-  if (authEnabled && !user) return <AuthScreen/>;
+  if (!user && !guestMode) return <AuthScreen configured={authEnabled} onContinueAsGuest={() => setGuestMode(true)}/>;
   if (!ready) return <LoadingScreen label="나의 학습 기록을 불러오는 중"/>;
-  if (!state.profile) return <OnboardingScreen onComplete={(profile: UserProfile) => { setState(current => ({ ...current, profile })); setScreen({name:"home"}); }} />;
+  if (!state.profile) return <OnboardingScreen onComplete={(profile: UserPreferences) => { setState(current => ({ ...current, profile })); setScreen({name:"home"}); }} />;
   const openNext = () => { const done = state.stats.articleCompletions[TODAY] ?? []; const next = articles.findIndex(article => !done.includes(article.id)); setScreen({ name: "lesson", index: next === -1 ? 0 : next }); };
   const finishArticle = (index: number) => {
     const newStats = completeArticle(state.stats, TODAY, articles[index].id);
@@ -64,7 +76,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
     }
   };
   if (screen.name === "lesson") return <LessonScreen key={articles[screen.index].id} article={articles[screen.index]} index={screen.index} total={articles.length} onBack={()=>setScreen({name:"home"})} onComplete={()=>finishArticle(screen.index)}/>;
-  if (screen.name === "complete") return <CompletionScreen xp={state.stats.xp} streak={state.stats.streak} onHome={()=>setScreen({name:"home"})}/>;
+  if (screen.name === "complete") return <CompletionScreen xp={state.stats.xp} streak={state.stats.streak} earnedXp={articles.length * 10 + 10} onHome={()=>setScreen({name:"home"})}/>;
   const signOutOrReset = async () => {
     if (user) {
       if (window.confirm("뉴씨드에서 로그아웃할까요? 학습 기록은 계정에 안전하게 저장돼요.")) await getSupabaseBrowserClient()?.auth.signOut();

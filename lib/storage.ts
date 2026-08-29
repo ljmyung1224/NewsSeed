@@ -1,4 +1,4 @@
-import type { AppState, LearningStats, UserProfile } from "@/types";
+import type { AppState, Category, LearningStats, UserPreferences } from "@/types";
 import { previousDate } from "@/lib/date";
 
 export const STORAGE_KEY = "newseed-state-v1";
@@ -10,7 +10,7 @@ export function loadState(userId?: string): AppState {
   if (typeof window === "undefined") return { profile: null, stats: initialStats };
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey(userId)) ?? "null") as Partial<AppState> | null;
-    return { profile: saved?.profile ?? null, stats: { ...initialStats, ...saved?.stats } };
+    return { profile: normalizePreferences(saved?.profile), stats: { ...initialStats, ...saved?.stats } };
   } catch { return { profile: null, stats: initialStats }; }
 }
 
@@ -32,6 +32,28 @@ export function completeDay(stats: LearningStats, date: string): LearningStats {
   return { ...stats, xp: stats.xp + 10, streak, lastCompletedDate: date, completedDates: [...stats.completedDates, date] };
 }
 
-export function createProfile(nickname: string, grade: UserProfile["grade"], interests: UserProfile["interests"]): UserProfile {
-  return { nickname: nickname.trim(), grade, interests };
+export const defaultPreferences: Omit<UserPreferences, "nickname" | "gradeLevel" | "interests"> = {
+  readingLevel: "normal",
+  explanationLevel: "easy",
+  dailyArticleCount: 3,
+};
+
+export function normalizePreferences(value: unknown): UserPreferences | null {
+  if (!value || typeof value !== "object") return null;
+  const legacy = value as Omit<Partial<UserPreferences>, "interests"> & { grade?: UserPreferences["gradeLevel"]; interests?: string[] };
+  if (!legacy.nickname || !(legacy.gradeLevel ?? legacy.grade) || !legacy.interests) return null;
+  const interests = legacy.interests.map(item => item === "세계" ? "국제" : item === "게임" ? "기술" : item).filter((item): item is Category => ["경제","과학","사회","국제","환경","문화","스포츠","기술","동물","우주"].includes(item));
+  return {
+    nickname: legacy.nickname,
+    gradeLevel: legacy.gradeLevel ?? legacy.grade!,
+    interests,
+    readingLevel: legacy.readingLevel ?? defaultPreferences.readingLevel,
+    explanationLevel: legacy.explanationLevel ?? defaultPreferences.explanationLevel,
+    dailyArticleCount: Math.min(5, Math.max(1, legacy.dailyArticleCount ?? defaultPreferences.dailyArticleCount)),
+    dailyDeliveryTime: legacy.dailyDeliveryTime,
+  };
+}
+
+export function createProfile(preferences: UserPreferences): UserPreferences {
+  return { ...preferences, nickname: preferences.nickname.trim() };
 }

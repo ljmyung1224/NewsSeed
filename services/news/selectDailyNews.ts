@@ -18,7 +18,7 @@ export function selectDailyNews(articles: Article[], interests: Category[], coun
     return result;
   };
   const usedCategories = new Set<Category>();
-  const interestCount = Math.min(2, count);
+  const interestCount = count === 1 ? 1 : Math.min(count - 1, preferred.length);
   const selected = chooseDistinct(preferred, interestCount, usedCategories);
   selected.push(...chooseDistinct(exploratory.filter(item => !selected.some(chosen => chosen.id === item.id)), count - selected.length, usedCategories));
   if (selected.length < count) selected.push(...chooseDistinct(uniqueById.filter(item => !selected.some(chosen => chosen.id === item.id)), count - selected.length, usedCategories));

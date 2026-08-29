@@ -1,6 +1,8 @@
-export type Category = "과학" | "우주" | "동물" | "스포츠" | "게임" | "경제" | "세계" | "환경" | "문화";
+export type Category = "경제" | "과학" | "사회" | "국제" | "환경" | "문화" | "스포츠" | "기술" | "동물" | "우주";
 
 export type GradeLevel = "1-2" | "3-4" | "5-6";
+export type ReadingLevel = "easy" | "normal" | "challenge";
+export type ExplanationLevel = "very-easy" | "easy" | "detailed";
 
 export interface VocabularyItem {
   word: string;
@@ -29,10 +31,10 @@ export interface ArticleSource {
 
 export interface KidArticleContent {
   title: string;
-  summary: string;
-  content: string[];
-  highlight: string;
+  easyExplanation: string[];
+  whyItMatters: string[];
   vocabulary: Vocabulary[];
+  keyTakeaway: string;
   quiz: Quiz[];
 }
 
@@ -50,11 +52,20 @@ export interface Article {
   color: string;
 }
 
-export interface UserProfile {
+export interface UserPreferences {
   nickname: string;
-  grade: GradeLevel;
+  gradeLevel: GradeLevel;
   interests: Category[];
+  readingLevel: ReadingLevel;
+  explanationLevel: ExplanationLevel;
+  dailyArticleCount: number;
+  dailyDeliveryTime?: string;
 }
+
+export type ContentGenerationPreferences = Pick<UserPreferences, "gradeLevel" | "readingLevel" | "explanationLevel">;
+
+/** Backward-compatible name used by existing UI components. */
+export type UserProfile = UserPreferences;
 
 export interface LearningStats {
   xp: number;
@@ -65,6 +76,6 @@ export interface LearningStats {
 }
 
 export interface AppState {
-  profile: UserProfile | null;
+  profile: UserPreferences | null;
   stats: LearningStats;
 }

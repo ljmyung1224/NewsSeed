@@ -7,6 +7,7 @@ export interface RawNewsArticle {
   url: string;
   publisher: string;
   publishedAt: string;
+  category: Category;
 }
 
 export interface NewsProvider {
@@ -23,7 +24,7 @@ export async function fetchLatestNews(category: Category, provider?: NewsProvide
   if (!apiKey || !provider) return [];
   try {
     const articles = await provider.fetchLatest(category, apiKey);
-    return articles.filter(article => article.title && article.url && article.publisher && article.publishedAt);
+    return articles.filter(article => article.title && article.description && article.url && article.publisher && article.publishedAt && article.category === category);
   } catch (error) {
     console.error(`[NewsSeed] Failed to fetch ${category} news metadata.`, error);
     return [];

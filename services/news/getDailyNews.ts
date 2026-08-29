@@ -1,28 +1,112 @@
 import "server-only";
-import type { Article, Category, GradeLevel } from "@/types";
+import { createHash } from "node:crypto";
+import type { Article, Category, ContentGenerationPreferences, ExplanationLevel, GradeLevel, KidArticleContent, ReadingLevel } from "@/types";
 import { categories } from "@/data/categories";
 import { mockArticles } from "@/data/mockArticles";
-import { fetchLatestNews, type NewsProvider } from "@/services/news/fetchNews";
+import { fetchLatestNews, type NewsProvider, type RawNewsArticle } from "@/services/news/fetchNews";
 import { transformNewsForKids, type KidsContentTransformer } from "@/services/news/transformNews";
 import { selectDailyNews } from "@/services/news/selectDailyNews";
+import { gnewsProvider } from "@/services/news/providers/gnewsProvider";
+import { openAITransformer } from "@/services/news/openAITransformer";
+import { memoryArticleCache, runSingleFlight, type ArticleContentCache } from "@/services/news/articleCache";
+import { evaluateArticleSafety, isAllowedForGrade } from "@/services/news/evaluateArticleSafety";
 
-interface DailyNewsOptions { interests?: Category[]; difficulty?: GradeLevel; count?: number; newsProvider?: NewsProvider; contentTransformer?: KidsContentTransformer; }
+interface DailyNewsOptions {
+  interests?: Category[]; difficulty?: GradeLevel; readingLevel?: ReadingLevel; explanationLevel?: ExplanationLevel;
+  count?: number; live?: boolean; newsProvider?: NewsProvider; contentTransformer?: KidsContentTransformer; contentCache?: ArticleContentCache;
+}
+
+const styleByCategory = new Map(categories.map(item => [item.name, item]));
 
 export async function getDailyNews(options: DailyNewsOptions = {}): Promise<Article[]> {
-  const { interests, difficulty = "3-4", count, newsProvider, contentTransformer } = options;
+  const { interests = [], difficulty = "3-4", readingLevel = "normal", explanationLevel = "easy", count: requestedCount = 3, live = true, newsProvider = gnewsProvider, contentTransformer = openAITransformer, contentCache = memoryArticleCache } = options;
+  const count = Math.min(5, Math.max(1, requestedCount));
+  const preferences: ContentGenerationPreferences = { gradeLevel: difficulty, readingLevel, explanationLevel };
+  const fallback = () => selectDailyNews(mockArticles, interests, count);
+  if (!live || !process.env.NEWS_API_KEY || !process.env.OPENAI_API_KEY) return fallback();
+
   try {
-    const candidates = (await Promise.all(categories.map(async ({ name, emoji }) => {
-      const rawArticles = await fetchLatestNews(name, newsProvider);
-      return Promise.all(rawArticles.map(async (raw, index): Promise<Article | null> => {
-        const kidContent = await transformNewsForKids(raw, difficulty, contentTransformer);
-        if (!kidContent) return null;
-        return { id: `news-${name}-${index}-${raw.publishedAt}`, category: name, difficulty, estimatedReadingTime: Math.max(1, Math.ceil(kidContent.content.join(" ").length / 450)), source: { title: raw.title, url: raw.url, publisher: raw.publisher, publishedAt: raw.publishedAt, description: raw.description }, kidContent, generatedAt: new Date().toISOString(), sourceType: "news-api", emoji, color: "#35a852" };
-      }));
-    }))).flat().filter((article): article is Article => article !== null);
-    const available = candidates.length ? candidates : mockArticles;
-    return interests ? selectDailyNews(available, interests, count ?? 3) : available;
+    const targetCategories = chooseTargetCategories(interests, count);
+    const fetched = (await Promise.all(targetCategories.map(category => fetchLatestNews(category, newsProvider)))).flat();
+    const unique = deduplicateNews(fetched);
+    const safetyResults = await Promise.all(unique.map(async article => ({ article, result: await evaluateArticleSafety(article) })));
+    const safeArticles = safetyResults.filter(item => isAllowedForGrade(item.result, difficulty)).map(item => item.article);
+    if (!safeArticles.length) return fallback();
+
+    const transformed: Article[] = [];
+    for (const raw of orderCandidates(safeArticles, interests, count)) {
+      if (transformed.length >= count + 3) break;
+      const article = await buildArticle(raw, preferences, contentTransformer, contentCache);
+      if (article) transformed.push(article);
+    }
+    if (transformed.length < count) return fallback();
+    const selected = selectDailyNews(transformed, interests, count);
+    const preferredCount = selected.filter(article => interests.includes(article.category)).length;
+    const requiredPreferred = interests.length ? (count === 1 ? 1 : count - 1) : 0;
+    return selected.length === count && preferredCount >= requiredPreferred ? selected : fallback();
   } catch (error) {
     console.error("[NewsSeed] Daily news pipeline failed; using mock fallback.", error);
-    return interests ? selectDailyNews(mockArticles, interests, count ?? 3) : mockArticles;
+    return fallback();
   }
+}
+
+async function buildArticle(raw: RawNewsArticle, preferences: ContentGenerationPreferences, transformer: KidsContentTransformer, cache: ArticleContentCache): Promise<Article | null> {
+  let kidContent: KidArticleContent | null;
+  let generatedAt: string;
+  const cached = await cache.get(raw.url, preferences);
+  if (cached) { kidContent = cached.content; generatedAt = cached.generatedAt; }
+  else {
+    const generated = await runSingleFlight(raw.url, preferences, async () => {
+      const content = await transformNewsForKids(raw, preferences, transformer);
+      if (!content) return null;
+      const value = { content, generatedAt: new Date().toISOString() };
+      await cache.set(raw.url, preferences, value);
+      return value;
+    });
+    if (!generated) return null;
+    kidContent = generated.content;
+    generatedAt = generated.generatedAt;
+  }
+  const style = styleByCategory.get(raw.category);
+  const variant = `${preferences.gradeLevel}-${preferences.readingLevel}-${preferences.explanationLevel}`;
+  const readableText = [...kidContent.easyExplanation, ...kidContent.whyItMatters].join(" ");
+  return {
+    id: `news-${createHash("sha256").update(raw.url).digest("hex").slice(0, 16)}-${variant}`,
+    category: raw.category, difficulty: preferences.gradeLevel, estimatedReadingTime: Math.max(1, Math.ceil(readableText.length / 400)),
+    source: { title: raw.title, url: raw.url, publisher: raw.publisher, publishedAt: raw.publishedAt, description: raw.description },
+    kidContent, generatedAt, sourceType: "news-api", emoji: style?.emoji ?? "📰", color: colorFor(raw.category),
+  };
+}
+
+function chooseTargetCategories(interests: Category[], count: number): Category[] {
+  const all = categories.map(item => item.name);
+  const seed = Math.floor(Date.now() / 86_400_000);
+  const rotate = <T,>(items: T[]) => items.length ? [...items.slice(seed % items.length), ...items.slice(0, seed % items.length)] : [];
+  const preferredTarget = count === 1 ? 1 : count - 1;
+  const preferred = rotate([...new Set(interests)]).slice(0, Math.max(2, preferredTarget));
+  const exploratory = rotate(all.filter(category => !interests.includes(category))).slice(0, 2);
+  return [...preferred, ...exploratory, ...rotate(all)].filter((category, index, list) => list.indexOf(category) === index).slice(0, 6);
+}
+
+function orderCandidates(articles: RawNewsArticle[], interests: Category[], count: number) {
+  const preferred = roundRobinByCategory(articles.filter(article => interests.includes(article.category)));
+  const exploratory = roundRobinByCategory(articles.filter(article => !interests.includes(article.category)));
+  const preferredTarget = count === 1 ? 1 : count - 1;
+  const priority = [...preferred.slice(0, preferredTarget), ...exploratory.slice(0, count - preferredTarget)];
+  return [...priority, ...preferred.slice(preferredTarget), ...exploratory.slice(count - preferredTarget)].filter((article, index, all) => all.findIndex(item => item.url === article.url) === index);
+}
+
+function roundRobinByCategory(articles: RawNewsArticle[]) {
+  const groups = new Map<Category, RawNewsArticle[]>();
+  articles.forEach(article => groups.set(article.category, [...(groups.get(article.category) ?? []), article]));
+  const result: RawNewsArticle[] = [];
+  while ([...groups.values()].some(group => group.length)) groups.forEach(group => { const next = group.shift(); if (next) result.push(next); });
+  return result;
+}
+
+function deduplicateNews(articles: RawNewsArticle[]) { return articles.filter((article, index, all) => all.findIndex(item => item.url === article.url || item.title === article.title) === index); }
+
+function colorFor(category: Category) {
+  const colors: Record<Category, string> = { "경제": "#f2b938", "과학": "#4f8ee8", "사회": "#d36b6b", "국제": "#5a79d6", "환경": "#42b873", "문화": "#b06acb", "스포츠": "#ff9d42", "기술": "#557fe8", "동물": "#36a7ce", "우주": "#7267f0" };
+  return colors[category];
 }

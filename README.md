@@ -11,7 +11,13 @@ npm install
 npm run dev
 ```
 
-외부 서비스 없이 Mock 기사 fallback으로 완전한 학습 흐름이 동작합니다. 실제 뉴스·AI 연동을 준비하려면 `.env.example`을 복사해 `.env.local`을 만들고 서버 전용 키를 설정하세요. 현재 버전은 키가 있어도 외부 유료 API를 호출하지 않습니다.
+외부 서비스 없이도 Mock 기사 fallback으로 완전한 학습 흐름이 동작합니다. 실제 뉴스·AI 연동을 준비하려면 `.env.example`을 복사해 `.env.local`을 만들고 서버 전용 키를 설정하세요.
+
+## 실제 뉴스 파이프라인
+
+`NEWS_API_KEY`와 `OPENAI_API_KEY`가 모두 설정되면 GNews에서 한국 최신 뉴스 메타데이터를 수집하고 OpenAI Responses API로 학년별 교육 콘텐츠를 생성합니다. 둘 중 하나라도 없거나 외부 요청·변환이 실패하면 자동으로 Mock 기사로 돌아갑니다. 원문 전체는 수집하거나 재게시하지 않습니다.
+
+상세 구조와 설정 방법은 [`docs/NEWS_PIPELINE.md`](docs/NEWS_PIPELINE.md)를 참고하세요.
 
 ## 소셜 로그인과 개인별 기록
 
