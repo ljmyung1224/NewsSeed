@@ -15,7 +15,7 @@ npm run dev
 
 ## 실제 뉴스 파이프라인
 
-`NEWS_API_KEY`와 `OPENAI_API_KEY`가 모두 설정되면 GNews에서 한국 최신 뉴스 메타데이터를 수집하고 OpenAI Responses API로 학년별 교육 콘텐츠를 생성합니다. 둘 중 하나라도 없거나 외부 요청·변환이 실패하면 자동으로 Mock 기사로 돌아갑니다. 원문 전체는 수집하거나 재게시하지 않습니다.
+`NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GEMINI_API_KEY`가 모두 설정되면 NAVER API HUB의 뉴스 검색 API에서 최신 뉴스 메타데이터를 수집하고 Gemini로 학년별 교육 콘텐츠를 생성합니다. 하나라도 없거나 외부 요청·변환이 실패하면 자동으로 Mock 기사로 돌아갑니다. 원문 전체는 수집하거나 재게시하지 않습니다.
 
 상세 구조와 설정 방법은 [`docs/NEWS_PIPELINE.md`](docs/NEWS_PIPELINE.md)를 참고하세요.
 

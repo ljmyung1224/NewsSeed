@@ -3,17 +3,18 @@ import { useEffect, useMemo, useState } from "react";
 import type { AppState, Article, UserPreferences } from "@/types";
 import { selectDailyNews } from "@/services/news/selectDailyNews";
 import { TODAY } from "@/lib/date";
-import { clearAnonymousState, completeArticle, completeDay, initialStats, loadState, saveState, STORAGE_KEY } from "@/lib/storage";
+import { clearAnonymousState, completeArticle, completeDay, initialStats, loadState, saveState } from "@/lib/storage";
 import { OnboardingScreen } from "@/features/onboarding/onboarding-screen";
 import { HomeScreen } from "@/features/daily-news/home-screen";
 import { LessonScreen } from "@/features/daily-news/lesson-screen";
 import { CompletionScreen } from "@/features/daily-news/completion-screen";
 import { AuthScreen } from "@/features/auth/auth-screen";
 import { useAuth } from "@/features/auth/use-auth";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { loadCloudState, saveCloudState } from "@/services/user/userState";
+import { useRouter } from "next/navigation";
 type Screen = { name: "home" } | { name: "lesson"; index: number } | { name: "complete" };
 export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: Article[]; authEnabled: boolean }) {
+  const router = useRouter();
   const [state, setState] = useState<AppState>({ profile: null, stats: initialStats });
   const [availableArticles, setAvailableArticles] = useState(initialArticles);
   const [ready, setReady] = useState(false);
@@ -49,7 +50,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
   useEffect(() => {
     if (!ready || !state.profile) return;
     const controller = new AbortController();
-    const params = new URLSearchParams({ difficulty: state.profile.gradeLevel, readingLevel: state.profile.readingLevel, explanationLevel: state.profile.explanationLevel, count: String(state.profile.dailyArticleCount), interests: state.profile.interests.join(",") });
+    const params = new URLSearchParams({ difficulty: state.profile.gradeLevel, readingLevel: state.profile.readingLevel, explanationLevel: state.profile.explanationLevel, count: String(state.profile.dailyArticleCount), interests: state.profile.interests.join(","), customInterests: state.profile.customInterests.join(",") });
     fetch(`/api/daily-news?${params}`, { signal: controller.signal })
       .then(response => response.ok ? response.json() as Promise<{ articles: Article[] }> : Promise.reject(new Error(`Daily news responded with ${response.status}`)))
       .then(data => { if (data.articles.length === state.profile?.dailyArticleCount) setAvailableArticles(data.articles); })
@@ -77,14 +78,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
   };
   if (screen.name === "lesson") return <LessonScreen key={articles[screen.index].id} article={articles[screen.index]} index={screen.index} total={articles.length} onBack={()=>setScreen({name:"home"})} onComplete={()=>finishArticle(screen.index)}/>;
   if (screen.name === "complete") return <CompletionScreen xp={state.stats.xp} streak={state.stats.streak} earnedXp={articles.length * 10 + 10} onHome={()=>setScreen({name:"home"})}/>;
-  const signOutOrReset = async () => {
-    if (user) {
-      if (window.confirm("뉴씨드에서 로그아웃할까요? 학습 기록은 계정에 안전하게 저장돼요.")) await getSupabaseBrowserClient()?.auth.signOut();
-      return;
-    }
-    if (window.confirm("온보딩부터 다시 시작할까요? 학습 기록도 초기화돼요.")) { localStorage.removeItem(STORAGE_KEY); setState({profile:null,stats:initialStats}); }
-  };
-  return <HomeScreen profile={state.profile} stats={state.stats} articles={articles} accountLabel={user?.email ?? user?.user_metadata?.name} onStart={openNext} onOpenArticle={index=>setScreen({name:"lesson",index})} onAccount={signOutOrReset}/>;
+  return <HomeScreen profile={state.profile} stats={state.stats} articles={articles} accountLabel={user?.email ?? user?.user_metadata?.name} onStart={openNext} onOpenArticle={index=>setScreen({name:"lesson",index})} onAccount={() => router.push("/profile")}/>;
 }
 
 function LoadingScreen({ label }: { label: string }) {

@@ -11,7 +11,15 @@ export interface RawNewsArticle {
 }
 
 export interface NewsProvider {
-  fetchLatest(category: Category, apiKey: string): Promise<RawNewsArticle[]>;
+  isConfigured(): boolean;
+  fetchLatest(category: Category): Promise<RawNewsArticle[]>;
+  fetchByQuery?(query: string, category: Category): Promise<RawNewsArticle[]>;
+}
+
+export async function fetchNewsByQuery(query: string, category: Category, provider?: NewsProvider): Promise<RawNewsArticle[]> {
+  if (!provider?.isConfigured() || !provider.fetchByQuery) return [];
+  try { return (await provider.fetchByQuery(query, category)).filter(article => article.title && article.description && article.url); }
+  catch (error) { console.warn(`[NewsSeed] Custom-interest news search failed for ${category}: ${error instanceof Error ? error.message : "unknown error"}`); return []; }
 }
 
 /**
@@ -20,13 +28,12 @@ export interface NewsProvider {
  * Missing configuration and provider failures intentionally return [] so callers can fall back.
  */
 export async function fetchLatestNews(category: Category, provider?: NewsProvider): Promise<RawNewsArticle[]> {
-  const apiKey = process.env.NEWS_API_KEY;
-  if (!apiKey || !provider) return [];
+  if (!provider?.isConfigured()) return [];
   try {
-    const articles = await provider.fetchLatest(category, apiKey);
+    const articles = await provider.fetchLatest(category);
     return articles.filter(article => article.title && article.description && article.url && article.publisher && article.publishedAt && article.category === category);
   } catch (error) {
-    console.error(`[NewsSeed] Failed to fetch ${category} news metadata.`, error);
+    console.warn(`[NewsSeed] Failed to fetch ${category} news metadata: ${error instanceof Error ? error.message : "unknown error"}`);
     return [];
   }
 }

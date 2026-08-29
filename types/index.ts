@@ -56,13 +56,15 @@ export interface UserPreferences {
   nickname: string;
   gradeLevel: GradeLevel;
   interests: Category[];
+  customInterests: string[];
   readingLevel: ReadingLevel;
   explanationLevel: ExplanationLevel;
   dailyArticleCount: number;
   dailyDeliveryTime?: string;
+  onboardingCompleted: boolean;
 }
 
-export type ContentGenerationPreferences = Pick<UserPreferences, "gradeLevel" | "readingLevel" | "explanationLevel">;
+export type ContentGenerationPreferences = Pick<UserPreferences, "gradeLevel" | "readingLevel" | "explanationLevel"> & Partial<Pick<UserPreferences, "interests" | "customInterests">>;
 
 /** Backward-compatible name used by existing UI components. */
 export type UserProfile = UserPreferences;

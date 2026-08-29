@@ -3,39 +3,47 @@ import { createHash } from "node:crypto";
 import type { Article, Category, ContentGenerationPreferences, ExplanationLevel, GradeLevel, KidArticleContent, ReadingLevel } from "@/types";
 import { categories } from "@/data/categories";
 import { mockArticles } from "@/data/mockArticles";
-import { fetchLatestNews, type NewsProvider, type RawNewsArticle } from "@/services/news/fetchNews";
+import { fetchLatestNews, fetchNewsByQuery, type NewsProvider, type RawNewsArticle } from "@/services/news/fetchNews";
 import { transformNewsForKids, type KidsContentTransformer } from "@/services/news/transformNews";
 import { selectDailyNews } from "@/services/news/selectDailyNews";
-import { gnewsProvider } from "@/services/news/providers/gnewsProvider";
-import { openAITransformer } from "@/services/news/openAITransformer";
+import { naverApiHubProvider } from "@/services/news/providers/naverApiHubProvider";
+import { geminiProvider } from "@/services/ai/gemini";
 import { memoryArticleCache, runSingleFlight, type ArticleContentCache } from "@/services/news/articleCache";
 import { evaluateArticleSafety, isAllowedForGrade } from "@/services/news/evaluateArticleSafety";
 
 interface DailyNewsOptions {
   interests?: Category[]; difficulty?: GradeLevel; readingLevel?: ReadingLevel; explanationLevel?: ExplanationLevel;
+  customInterests?: string[];
   count?: number; live?: boolean; newsProvider?: NewsProvider; contentTransformer?: KidsContentTransformer; contentCache?: ArticleContentCache;
 }
 
 const styleByCategory = new Map(categories.map(item => [item.name, item]));
 
 export async function getDailyNews(options: DailyNewsOptions = {}): Promise<Article[]> {
-  const { interests = [], difficulty = "3-4", readingLevel = "normal", explanationLevel = "easy", count: requestedCount = 3, live = true, newsProvider = gnewsProvider, contentTransformer = openAITransformer, contentCache = memoryArticleCache } = options;
+  const { interests = [], customInterests = [], difficulty = "3-4", readingLevel = "normal", explanationLevel = "easy", count: requestedCount = 3, live = true, newsProvider = naverApiHubProvider, contentTransformer = geminiProvider, contentCache = memoryArticleCache } = options;
   const count = Math.min(5, Math.max(1, requestedCount));
-  const preferences: ContentGenerationPreferences = { gradeLevel: difficulty, readingLevel, explanationLevel };
+  const preferences: ContentGenerationPreferences = { gradeLevel: difficulty, readingLevel, explanationLevel, interests, customInterests };
   const fallback = () => selectDailyNews(mockArticles, interests, count);
-  if (!live || !process.env.NEWS_API_KEY || !process.env.OPENAI_API_KEY) return fallback();
+  if (!live || !newsProvider.isConfigured() || !contentTransformer.isConfigured()) return fallback();
 
   try {
     const targetCategories = chooseTargetCategories(interests, count);
-    const fetched = (await Promise.all(targetCategories.map(category => fetchLatestNews(category, newsProvider)))).flat();
+    const fallbackCategory = interests[0] ?? "사회";
+    const [categoryFetched, customFetched] = await Promise.all([
+      Promise.all(targetCategories.map(category => fetchLatestNews(category, newsProvider))),
+      Promise.all(customInterests.slice(0, 3).map(query => fetchNewsByQuery(query, fallbackCategory, newsProvider))),
+    ]);
+    const fetched = [...categoryFetched.flat(), ...customFetched.flat()];
     const unique = deduplicateNews(fetched);
     const safetyResults = await Promise.all(unique.map(async article => ({ article, result: await evaluateArticleSafety(article) })));
     const safeArticles = safetyResults.filter(item => isAllowedForGrade(item.result, difficulty)).map(item => item.article);
     if (!safeArticles.length) return fallback();
 
     const transformed: Article[] = [];
+    let attempts = 0;
     for (const raw of orderCandidates(safeArticles, interests, count)) {
-      if (transformed.length >= count + 3) break;
+      if (transformed.length >= count || attempts >= count + 4) break;
+      attempts += 1;
       const article = await buildArticle(raw, preferences, contentTransformer, contentCache);
       if (article) transformed.push(article);
     }
@@ -45,7 +53,7 @@ export async function getDailyNews(options: DailyNewsOptions = {}): Promise<Arti
     const requiredPreferred = interests.length ? (count === 1 ? 1 : count - 1) : 0;
     return selected.length === count && preferredCount >= requiredPreferred ? selected : fallback();
   } catch (error) {
-    console.error("[NewsSeed] Daily news pipeline failed; using mock fallback.", error);
+    console.warn(`[NewsSeed] Daily news pipeline failed; using mock fallback: ${error instanceof Error ? error.message : "unknown error"}`);
     return fallback();
   }
 }

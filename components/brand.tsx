@@ -5,6 +5,6 @@ export function SproutLogo({ compact = false }: { compact?: boolean }) {
       <span className="absolute right-[8px] top-[4px] h-3 w-4 -rotate-[12deg] rounded-[0_100%] bg-[var(--lime)]" />
       <span className="h-4 w-0.5 rounded bg-current" />
     </span>
-    {!compact && <span className="text-xl font-black tracking-[-0.04em] text-[var(--ink)]">뉴씨드</span>}
+    {!compact && <span className="type-display text-xl text-[var(--ink)]">뉴씨드</span>}
   </div>;
 }

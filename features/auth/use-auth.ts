@@ -13,8 +13,12 @@ export function useAuth(enabled: boolean) {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
     let active = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (active) { setUser(data.user); setReady(true); }
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (!active) return;
+      setUser(error ? null : data.user);
+      setReady(true);
+    }).catch(() => {
+      if (active) { setUser(null); setReady(true); }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);

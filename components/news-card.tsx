@@ -6,7 +6,7 @@ export function NewsCard({ article, index, completed, onClick }: { article: Arti
     <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-2xl" style={{ backgroundColor: `${article.color}18` }}>{article.emoji}</span>
     <span className="min-w-0 flex-1">
       <span className="mb-1 flex items-center gap-2 text-xs font-extrabold" style={{ color: article.color }}><span>{index + 1}번째 씨앗</span><span>·</span><ClockIcon size={13}/><span>{article.estimatedReadingTime}분</span></span>
-      <span className="block text-[15px] font-extrabold leading-snug text-[var(--ink)] sm:text-base">{article.kidContent.title}</span>
+      <span className="type-card-title block text-[16px] text-[var(--ink)] sm:text-[17px]">{article.kidContent.title}</span>
     </span>
     <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${completed ? "bg-[var(--green)] text-white" : "bg-[#f2f5f3] text-[var(--muted)] group-hover:bg-[var(--green-soft)] group-hover:text-[var(--green)]"}`}>{completed ? <CheckIcon size={17}/> : <ArrowIcon size={17}/>}</span>
   </button>;

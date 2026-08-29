@@ -19,11 +19,10 @@ Publishable key는 브라우저 사용을 전제로 한 공개 키입니다. 사
 
 Authentication → URL Configuration에서 다음을 등록합니다.
 
-- Site URL: 실제 Vercel 운영 주소
+- Site URL: `https://newsseed.vercel.app`
 - Redirect URLs:
   - `http://localhost:3000/**`
-  - `https://*-<vercel-team-or-account>.vercel.app/**`
-  - 실제 운영 주소의 `/**`
+  - `https://newsseed.vercel.app/**`
 
 ## 3. Google
 
@@ -31,6 +30,8 @@ Authentication → URL Configuration에서 다음을 등록합니다.
 2. Authorized JavaScript origins에 로컬 주소와 운영 주소를 등록합니다.
 3. Authorized redirect URI에는 Supabase Google Provider 화면에 표시되는 `https://<project-ref>.supabase.co/auth/v1/callback`을 등록합니다.
 4. Client ID와 Client Secret을 Supabase Authentication → Providers → Google에 입력하고 활성화합니다.
+
+앱의 로그인 버튼은 현재 브라우저 origin을 사용해 `/auth/callback`으로 돌아옵니다. 로컬과 운영 환경 모두 같은 코드 경로를 사용합니다.
 
 ## 4. Kakao
 

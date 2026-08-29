@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Category, ExplanationLevel, GradeLevel, ReadingLevel } from "@/types";
 import { categories } from "@/data/categories";
 import { getDailyNews } from "@/services/news/getDailyNews";
+import { normalizeCustomInterests } from "@/lib/storage";
 
 const validCategories = new Set<Category>(categories.map(item => item.name));
 const validDifficulties = new Set<GradeLevel>(["1-2", "3-4", "5-6"]);
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
   const explanationLevel = explanationParam && validExplanationLevels.has(explanationParam) ? explanationParam : "easy";
   const count = Math.min(5, Math.max(1, Number.parseInt(params.get("count") ?? "3", 10) || 3));
   const interests = (params.get("interests") ?? "").split(",").filter((value): value is Category => validCategories.has(value as Category)).slice(0, 10);
-  const articles = await getDailyNews({ interests, difficulty, readingLevel, explanationLevel, count });
+  const customInterests = normalizeCustomInterests((params.get("customInterests") ?? "").split(","));
+  const articles = await getDailyNews({ interests, customInterests, difficulty, readingLevel, explanationLevel, count });
   return NextResponse.json({ articles }, { headers: { "Cache-Control": "private, max-age=300" } });
 }

@@ -33,9 +33,11 @@ export function completeDay(stats: LearningStats, date: string): LearningStats {
 }
 
 export const defaultPreferences: Omit<UserPreferences, "nickname" | "gradeLevel" | "interests"> = {
+  customInterests: [],
   readingLevel: "normal",
   explanationLevel: "easy",
   dailyArticleCount: 3,
+  onboardingCompleted: true,
 };
 
 export function normalizePreferences(value: unknown): UserPreferences | null {
@@ -47,11 +49,26 @@ export function normalizePreferences(value: unknown): UserPreferences | null {
     nickname: legacy.nickname,
     gradeLevel: legacy.gradeLevel ?? legacy.grade!,
     interests,
+    customInterests: normalizeCustomInterests(legacy.customInterests),
     readingLevel: legacy.readingLevel ?? defaultPreferences.readingLevel,
     explanationLevel: legacy.explanationLevel ?? defaultPreferences.explanationLevel,
     dailyArticleCount: Math.min(5, Math.max(1, legacy.dailyArticleCount ?? defaultPreferences.dailyArticleCount)),
     dailyDeliveryTime: legacy.dailyDeliveryTime,
+    onboardingCompleted: legacy.onboardingCompleted ?? true,
   };
+}
+
+export function normalizeCustomInterests(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value.flatMap(item => {
+    if (typeof item !== "string") return [];
+    const clean = item.trim().replace(/\s+/g, " ").slice(0, 20);
+    const key = clean.toLocaleLowerCase("ko-KR");
+    if (!clean || seen.has(key)) return [];
+    seen.add(key);
+    return [clean];
+  }).slice(0, 10);
 }
 
 export function createProfile(preferences: UserPreferences): UserPreferences {
