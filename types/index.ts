@@ -36,6 +36,7 @@ export interface KidArticleContent {
   vocabulary: Vocabulary[];
   keyTakeaway: string;
   quiz: Quiz[];
+  imageSafe?: boolean;
 }
 
 export interface Article {
@@ -52,6 +53,13 @@ export interface Article {
   /** Presentation metadata. Replace with an asset service when editorial images are added. */
   emoji: string;
   color: string;
+}
+
+export interface SeedRecord {
+  article: Article;
+  completedAt: string;
+  xpEarned: number;
+  quizCompleted: boolean;
 }
 
 export interface UserPreferences {

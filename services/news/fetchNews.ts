@@ -8,6 +8,7 @@ export interface RawNewsArticle {
   publisher: string;
   publishedAt: string;
   category: Category;
+  imageUrl?: string;
 }
 
 export interface NewsProvider {

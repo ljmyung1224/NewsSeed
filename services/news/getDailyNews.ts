@@ -99,7 +99,7 @@ async function buildArticle(raw: RawNewsArticle, preferences: ContentGenerationP
     id: `news-${createHash("sha256").update(raw.url).digest("hex").slice(0, 16)}-${variant}`,
     category: raw.category, difficulty: preferences.gradeLevel, estimatedReadingTime: Math.max(1, Math.ceil(readableText.length / 400)),
     source: { title: raw.title, url: raw.url, publisher: raw.publisher, publishedAt: raw.publishedAt, description: raw.description },
-    kidContent, generatedAt, sourceType: "news-api", emoji: style?.emoji ?? "📰", color: colorFor(raw.category),
+    kidContent, generatedAt, imageUrl: kidContent.imageSafe !== false ? raw.imageUrl : undefined, sourceType: "news-api", emoji: style?.emoji ?? "📰", color: colorFor(raw.category),
   } };
 }
 

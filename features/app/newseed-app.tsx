@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AppState, Article, UserPreferences } from "@/types";
 import { selectDailyNews } from "@/services/news/selectDailyNews";
 import { TODAY } from "@/lib/date";
-import { clearAnonymousState, completeArticle, completeDay, initialStats, loadState, saveState } from "@/lib/storage";
+import { clearAnonymousState, completeArticle, completeDay, initialStats, loadState, saveState, saveSeedRecord } from "@/lib/storage";
 import { OnboardingScreen } from "@/features/onboarding/onboarding-screen";
 import { HomeScreen } from "@/features/daily-news/home-screen";
 import { LessonScreen } from "@/features/daily-news/lesson-screen";
@@ -78,6 +78,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
     const dayComplete = completed.length >= articles.length;
     const nextStats = alreadyCompleted ? newStats : (dayComplete ? completeDay(newStats, TODAY) : newStats);
     setEarnedXp(alreadyCompleted ? 0 : nextStats.xp - state.stats.xp);
+    if (!alreadyCompleted) saveSeedRecord({ article: articles[index], completedAt: new Date().toISOString(), xpEarned: nextStats.xp - state.stats.xp, quizCompleted: true }, user?.id);
     setState(current => ({ ...current, stats: nextStats }));
     setScreen({ name: "complete" });
   };

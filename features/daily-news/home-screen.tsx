@@ -7,6 +7,7 @@ import { StreakBadge, XPBadge } from "@/components/badges";
 import { ArrowIcon, ClockIcon } from "@/components/icons";
 import { NewsCard } from "@/components/news-card";
 import { MonthlyCalendar } from "@/components/monthly-calendar";
+import Link from "next/link";
 
 export function HomeScreen({ profile, stats, articles, accountLabel, onStart, onOpenArticle, onAccount }: { profile: UserProfile; stats: LearningStats; articles: Article[]; accountLabel?: string; onStart: () => void; onOpenArticle: (index: number) => void; onAccount: () => void }) {
   const completed = stats.articleCompletions[TODAY] ?? [];
@@ -30,6 +31,7 @@ export function HomeScreen({ profile, stats, articles, accountLabel, onStart, on
         </div>
         <aside className="space-y-6"><section className="card p-5 sm:p-6"><h2 className="type-display type-section">이번 주 성장</h2><div className="mt-4 flex items-center gap-4"><div className="grid h-16 w-16 place-items-center rounded-2xl bg-[#fff2e7] text-3xl">🔥</div><div><p className="text-2xl font-black">{stats.streak}일 연속</p><p className="mt-1 text-sm text-[var(--muted)]">꾸준함이 지식을 키워요</p></div></div><div className="mt-5 grid grid-cols-7 gap-1.5">{["월","화","수","목","금","토","일"].map((day,index)=><div key={day} className="text-center"><span className={`mx-auto grid h-8 w-8 place-items-center rounded-full text-xs font-black ${index===5 && allDone ? "bg-[#ff8a3d] text-white" : index===5 ? "border-2 border-dashed border-[#f4a372] text-[#e87a31]" : "bg-[#f0f4f1] text-[#a5ada7]"}`}>{index===5 && allDone ? "✓" : day}</span></div>)}</div></section><MonthlyCalendar completedDates={stats.completedDates}/><section className="overflow-hidden rounded-[22px] bg-[#eeedff] p-5"><div className="flex items-center gap-4"><span className="text-4xl">🧭</span><div><h2 className="type-display text-lg text-[#6259c9]">새로운 분야 탐험</h2><p className="mt-1 text-sm font-bold">관심 밖의 뉴스도 하나씩!</p></div></div></section></aside>
       </div>
+      <Link href="/seeds" className="mt-6 block overflow-hidden rounded-[22px] bg-[var(--green-soft)] p-5 transition hover:-translate-y-0.5"><div className="flex items-center gap-4"><span className="text-4xl">🌱</span><div><h2 className="type-display text-lg text-[var(--green-deep)]">나의 씨앗 보관함</h2><p className="mt-1 text-sm font-bold text-[var(--green-deep)]">지금까지 심은 지식 씨앗을 다시 만나보세요.</p></div></div></Link>
     </div>
   </main>;
 }

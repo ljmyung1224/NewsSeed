@@ -13,7 +13,7 @@ export class GeminiCallError extends Error {
 }
 
 export const generatedContentSchema = z.object({
-  canTransform: z.boolean(), title: z.string(), easyExplanation: z.array(z.string()), whyItMatters: z.array(z.string()),
+  canTransform: z.boolean(), imageSafe: z.boolean().default(true), title: z.string(), easyExplanation: z.array(z.string()), whyItMatters: z.array(z.string()),
   vocabulary: z.array(z.object({ word: z.string(), meaning: z.string() })), keyTakeaway: z.string(),
   quiz: z.array(z.object({ id: z.string(), question: z.string(), options: z.array(z.string()), answer: z.number().int(), explanation: z.string() })).length(1),
 });
@@ -22,7 +22,7 @@ export const responseJsonSchema = {
   type: "object", additionalProperties: false,
   required: ["canTransform", "title", "easyExplanation", "whyItMatters", "vocabulary", "keyTakeaway", "quiz"],
   properties: {
-    canTransform: { type: "boolean" }, title: { type: "string" }, easyExplanation: { type: "array", items: { type: "string" } }, whyItMatters: { type: "array", items: { type: "string" } },
+    canTransform: { type: "boolean" }, imageSafe: { type: "boolean" }, title: { type: "string" }, easyExplanation: { type: "array", items: { type: "string" } }, whyItMatters: { type: "array", items: { type: "string" } },
     vocabulary: { type: "array", items: { type: "object", additionalProperties: false, required: ["word", "meaning"], properties: { word: { type: "string" }, meaning: { type: "string" } } } },
     keyTakeaway: { type: "string" },
     quiz: { type: "array", minItems: 1, maxItems: 1, items: { type: "object", additionalProperties: false, required: ["id", "question", "options", "answer", "explanation"], properties: { id: { type: "string" }, question: { type: "string" }, options: { type: "array", items: { type: "string" } }, answer: { type: "integer" }, explanation: { type: "string" } } } },
@@ -56,7 +56,7 @@ export async function transformWithGemini(article: RawNewsArticle, preferences: 
   if (!parsed.canTransform) throw new GeminiCallError("Article metadata is insufficient for safe transformation", "validation", "article_not_transformable");
   if (!parsed.title || parsed.easyExplanation.length < 2 || parsed.whyItMatters.length < 1 || parsed.vocabulary.length < 2 || parsed.vocabulary.length > 5 || !parsed.keyTakeaway) throw new GeminiCallError("Generated content is incomplete", "validation", "invalid_schema");
   if (parsed.quiz.some(quiz => quiz.options.length < 3 || quiz.answer < 0 || quiz.answer >= quiz.options.length)) throw new GeminiCallError("Generated quiz is invalid", "validation", "invalid_schema");
-  return { title: parsed.title, easyExplanation: parsed.easyExplanation, whyItMatters: parsed.whyItMatters, vocabulary: parsed.vocabulary, keyTakeaway: parsed.keyTakeaway, quiz: parsed.quiz };
+  return { title: parsed.title, easyExplanation: parsed.easyExplanation, whyItMatters: parsed.whyItMatters, vocabulary: parsed.vocabulary, keyTakeaway: parsed.keyTakeaway, quiz: parsed.quiz, imageSafe: parsed.imageSafe };
 }
 
 async function requestGemini(body: unknown): Promise<GeminiResponse> {

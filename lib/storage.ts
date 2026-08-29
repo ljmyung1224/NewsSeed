@@ -2,9 +2,22 @@ import type { AppState, Category, LearningStats, UserPreferences } from "@/types
 import { previousDate } from "@/lib/date";
 
 export const STORAGE_KEY = "newseed-state-v1";
+export const SEEDS_KEY = "newseed-seeds-v1";
 export const initialStats: LearningStats = { xp: 0, streak: 0, lastCompletedDate: null, completedDates: [], articleCompletions: {} };
 
 function storageKey(userId?: string) { return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY; }
+function seedsKey(userId?: string) { return userId ? `${SEEDS_KEY}:${userId}` : SEEDS_KEY; }
+
+export function loadSeedRecords(userId?: string): import("@/types").SeedRecord[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(seedsKey(userId)) ?? "[]") as import("@/types").SeedRecord[]; } catch { return []; }
+}
+
+export function saveSeedRecord(record: import("@/types").SeedRecord, userId?: string) {
+  const records = loadSeedRecords(userId);
+  if (records.some(item => item.article.id === record.article.id && item.completedAt.slice(0, 10) === record.completedAt.slice(0, 10))) return;
+  localStorage.setItem(seedsKey(userId), JSON.stringify([record, ...records].slice(0, 365)));
+}
 
 export function loadState(userId?: string): AppState {
   if (typeof window === "undefined") return { profile: null, stats: initialStats };

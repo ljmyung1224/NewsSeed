@@ -17,7 +17,7 @@ const explanationGuides: Record<ExplanationLevel, string> = {
 };
 
 export function createNewsForKidsPrompt(preferences: ContentGenerationPreferences) {
-  const articleWritingGuide = "Write a readable single-column children's news article, not a short summary. Add source-grounded background, current situation, cause, daily-life connection, and what to watch next. Use one central idea per paragraph, avoid repetition and unsupported facts. Length target: grades 1-2 350-550 Korean characters in 4-5 paragraphs; grades 3-4 600-900 in 5-6 paragraphs; grades 5-6 900-1400 in 6-8 paragraphs.";
+  const articleWritingGuide = "Write a readable single-column children's news article, not a short summary. Add source-grounded background, current situation, cause, daily-life connection, and what to watch next. Use one central idea per paragraph, avoid repetition and unsupported facts. Length target: grades 1-2 350-550 Korean characters in 4-5 paragraphs; grades 3-4 600-900 in 5-6 paragraphs; grades 5-6 900-1400 in 6-8 paragraphs. Also return imageSafe=true only when a source article image would be harmless and suitable for children; return false for violence, tragedy, crime, injury, frightening scenes, or adult/private topics.";
   const baseInterests = preferences.interests?.join(", ") || "지정 없음";
   const customInterests = preferences.customInterests?.join(", ") || "없음";
   return `${articleWritingGuide}\n\n당신은 어린이 뉴스 학습 서비스 뉴씨드(NewsSeed)의 교육 콘텐츠 편집자입니다.

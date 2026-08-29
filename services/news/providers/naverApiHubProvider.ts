@@ -70,7 +70,7 @@ async function fetchQuery(query: string, category: Category) {
     if (!response.ok) throw new Error(`NAVER API HUB responded with ${response.status}`);
 
     const payload = await response.json() as NaverNewsResponse;
-    return (payload.items ?? []).flatMap((item): RawNewsArticle[] => {
+    const candidates = (payload.items ?? []).flatMap((item): RawNewsArticle[] => {
       const url = validUrl(item.originallink) ?? validUrl(item.link);
       const publishedAt = toIsoDate(item.pubDate);
       const title = cleanText(item.title);
@@ -85,6 +85,18 @@ async function fetchQuery(query: string, category: Category) {
         category,
       }];
     });
+    return Promise.all(candidates.map(async article => ({ ...article, imageUrl: await extractOgImage(article.url) })));
+}
+
+async function extractOgImage(url: string) {
+  try {
+    const response = await fetch(url, { headers: { Accept: "text/html" }, cache: "no-store", signal: AbortSignal.timeout(3_000) });
+    if (!response.ok) return undefined;
+    const html = (await response.text()).slice(0, 500_000);
+    const match = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+      ?? html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    return match?.[1] ? validUrl(match[1]) ?? undefined : undefined;
+  } catch { return undefined; }
 }
 
 function cleanText(value?: string) {
