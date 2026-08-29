@@ -49,6 +49,6 @@ export function createNewsForKidsPrompt(preferences: ContentGenerationPreference
 - whyItMatters는 아이의 생활, 사회와의 관계, 알아둘 이유를 1~3개의 구체적인 짧은 문단으로 쓴다. 빈 문장은 금지한다.
 - vocabulary는 핵심 단어 2~5개이며 사전식 정의보다 쉬운 설명과 필요할 때 짧은 예를 제공한다.
 - keyTakeaway는 아이가 기억할 한 문장이다.
-- quiz는 1~3개, 기본 2개로 작성하고 핵심 사실, 원인과 결과, 의미 이해를 섞는다. 입력 정보만으로 정답을 판단할 수 있어야 한다.
+- quiz는 반드시 1개만 작성한다. 입력 정보만으로 정답을 판단할 수 있는 핵심 이해 문제로 만든다.
 - 안전하고 충분한 교육 콘텐츠를 만들 수 있을 때만 canTransform을 true로 반환한다.`;
 }

@@ -2,16 +2,15 @@
 
 import { useState, type CSSProperties } from "react";
 import type { Provider } from "@supabase/supabase-js";
+import type { Article } from "@/types";
 import { SproutLogo } from "@/components/brand";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getSupabaseProjectRef } from "@/lib/supabase/config";
-import { mockArticles } from "@/data/mockArticles";
-
-const sampleArticles = ["moon-garden", "sports-data", "money-value"].map(id => mockArticles.find(article => article.id === id)!).filter(Boolean);
 
 const gradeLabels = { "1-2": "초등 1~2학년", "3-4": "초등 3~4학년", "5-6": "초등 5~6학년" } as const;
 
-export function AuthScreen({ configured, onContinueAsGuest }: { configured: boolean; onContinueAsGuest?: () => void }) {
+export function AuthScreen({ configured, sampleArticles: availableSamples, onContinueAsGuest }: { configured: boolean; sampleArticles: Article[]; onContinueAsGuest?: () => void }) {
+  const sampleArticles = availableSamples.slice(0, 3);
   const [loading, setLoading] = useState<Provider | null>(null);
   const [error, setError] = useState("");
   const [sampleIndex, setSampleIndex] = useState(0);
@@ -22,18 +21,19 @@ export function AuthScreen({ configured, onContinueAsGuest }: { configured: bool
   const signIn = async (provider: "google" | "kakao") => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
+    const redirectTo = `${window.location.origin}/auth/callback`;
     if (process.env.NODE_ENV === "development") {
       console.info("[NewsSeed][OAuth][start] Browser client diagnostics.", {
         provider,
         browserProjectRef: getSupabaseProjectRef(process.env.NEXT_PUBLIC_SUPABASE_URL),
-        redirectDestination: `${window.location.origin}/auth/callback`,
+        redirectDestination: redirectTo,
       });
     }
     setLoading(provider);
     setError("");
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo },
     });
     if (authError) {
       setError("로그인을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.");

@@ -58,8 +58,14 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
     return () => controller.abort();
   }, [ready, state.profile]);
   const articles = useMemo(() => selectDailyNews(availableArticles, state.profile?.interests ?? [], state.profile?.dailyArticleCount ?? 3), [availableArticles, state.profile?.dailyArticleCount, state.profile?.interests]);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    articles.forEach(article => console.info("[NewsSeed Article]", article.sourceType === "news-api" ? {
+      sourceType: article.sourceType, sourceTitle: article.source.title, publisher: article.source.publisher, category: article.category,
+    } : { sourceType: article.sourceType, fallbackReason: article.fallbackReason ?? "unknown" }));
+  }, [articles]);
   if (!authReady) return <LoadingScreen label="로그인 정보를 확인하는 중"/>;
-  if (!user && !guestMode) return <AuthScreen configured={authEnabled} onContinueAsGuest={() => setGuestMode(true)}/>;
+  if (!user && !guestMode) return <AuthScreen configured={authEnabled} sampleArticles={initialArticles} onContinueAsGuest={() => setGuestMode(true)}/>;
   if (!ready) return <LoadingScreen label="나의 학습 기록을 불러오는 중"/>;
   if (!state.profile) return <OnboardingScreen onComplete={(profile: UserPreferences) => { setState(current => ({ ...current, profile })); setScreen({name:"home"}); }} />;
   const openNext = () => { const done = state.stats.articleCompletions[TODAY] ?? []; const next = articles.findIndex(article => !done.includes(article.id)); setScreen({ name: "lesson", index: next === -1 ? 0 : next }); };

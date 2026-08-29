@@ -150,7 +150,7 @@ const mockArticleSeeds: MockArticleSeed[] = [
 export const mockArticles: Article[] = mockArticleSeeds.map(({ title, easyExplanation, whyItMatters, vocabulary, keyTakeaway, quiz, ...article }) => ({
   ...article,
   source: { title: "NewsSeed 개발용 예시 기사", url: "", publisher: "NewsSeed", publishedAt: "2026-08-29", description: "실제 뉴스 API 연동 전 콘텐츠 흐름을 검증하기 위한 개발용 기사입니다." },
-  kidContent: { title, easyExplanation, whyItMatters, vocabulary, keyTakeaway, quiz },
+  kidContent: { title, easyExplanation, whyItMatters, vocabulary, keyTakeaway, quiz: quiz.slice(0, 1) },
   generatedAt: "2026-08-29T00:00:00.000Z",
   sourceType: "mock" as const,
 }));

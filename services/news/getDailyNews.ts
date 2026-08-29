@@ -17,14 +17,18 @@ interface DailyNewsOptions {
   count?: number; live?: boolean; newsProvider?: NewsProvider; contentTransformer?: KidsContentTransformer; contentCache?: ArticleContentCache;
 }
 
+type FallbackReason = NonNullable<Article["fallbackReason"]>;
+type BuildArticleResult = { article: Article | null; failureReason?: FallbackReason };
+
 const styleByCategory = new Map(categories.map(item => [item.name, item]));
 
 export async function getDailyNews(options: DailyNewsOptions = {}): Promise<Article[]> {
   const { interests = [], customInterests = [], difficulty = "3-4", readingLevel = "normal", explanationLevel = "easy", count: requestedCount = 3, live = true, newsProvider = naverApiHubProvider, contentTransformer = geminiProvider, contentCache = memoryArticleCache } = options;
   const count = Math.min(5, Math.max(1, requestedCount));
   const preferences: ContentGenerationPreferences = { gradeLevel: difficulty, readingLevel, explanationLevel, interests, customInterests };
-  const fallback = () => selectDailyNews(mockArticles, interests, count);
-  if (!live || !newsProvider.isConfigured() || !contentTransformer.isConfigured()) return fallback();
+  const fallback = (reason: FallbackReason) => selectDailyNews(mockArticles, interests, count).map(article => ({ ...article, fallbackReason: reason }));
+  if (!live) return fallback("live_disabled");
+  if (!newsProvider.isConfigured() || !contentTransformer.isConfigured()) return fallback("missing_api_key");
 
   try {
     const targetCategories = chooseTargetCategories(interests, count);
@@ -35,55 +39,62 @@ export async function getDailyNews(options: DailyNewsOptions = {}): Promise<Arti
     ]);
     const fetched = [...categoryFetched.flat(), ...customFetched.flat()];
     const unique = deduplicateNews(fetched);
+    if (!unique.length) return fallback("naver_api_failed");
     const safetyResults = await Promise.all(unique.map(async article => ({ article, result: await evaluateArticleSafety(article) })));
     const safeArticles = safetyResults.filter(item => isAllowedForGrade(item.result, difficulty)).map(item => item.article);
-    if (!safeArticles.length) return fallback();
+    if (!safeArticles.length) return fallback("no_safe_candidate");
 
     const transformed: Article[] = [];
+    const transformFailures: FallbackReason[] = [];
     let attempts = 0;
     for (const raw of orderCandidates(safeArticles, interests, count)) {
       if (transformed.length >= count || attempts >= count + 4) break;
       attempts += 1;
-      const article = await buildArticle(raw, preferences, contentTransformer, contentCache);
-      if (article) transformed.push(article);
+      const result = await buildArticle(raw, preferences, contentTransformer, contentCache);
+      if (result.article) transformed.push(result.article);
+      else if (result.failureReason) transformFailures.push(result.failureReason);
     }
-    if (transformed.length < count) return fallback();
+    if (transformed.length < count) return fallback(transformFailures.includes("validation_failed") ? "validation_failed" : "gemini_failed");
     const selected = selectDailyNews(transformed, interests, count);
     const preferredCount = selected.filter(article => interests.includes(article.category)).length;
     const requiredPreferred = interests.length ? (count === 1 ? 1 : count - 1) : 0;
-    return selected.length === count && preferredCount >= requiredPreferred ? selected : fallback();
+    return selected.length === count && preferredCount >= requiredPreferred ? selected : fallback("no_safe_candidate");
   } catch (error) {
     console.warn(`[NewsSeed] Daily news pipeline failed; using mock fallback: ${error instanceof Error ? error.message : "unknown error"}`);
-    return fallback();
+    return fallback("naver_api_failed");
   }
 }
 
-async function buildArticle(raw: RawNewsArticle, preferences: ContentGenerationPreferences, transformer: KidsContentTransformer, cache: ArticleContentCache): Promise<Article | null> {
+async function buildArticle(raw: RawNewsArticle, preferences: ContentGenerationPreferences, transformer: KidsContentTransformer, cache: ArticleContentCache): Promise<BuildArticleResult> {
   let kidContent: KidArticleContent | null;
   let generatedAt: string;
   const cached = await cache.get(raw.url, preferences);
   if (cached) { kidContent = cached.content; generatedAt = cached.generatedAt; }
   else {
+    let generationFailure: FallbackReason = "gemini_failed";
     const generated = await runSingleFlight(raw.url, preferences, async () => {
-      const content = await transformNewsForKids(raw, preferences, transformer);
-      if (!content) return null;
-      const value = { content, generatedAt: new Date().toISOString() };
+      const result = await transformNewsForKids(raw, preferences, transformer);
+      if (!result.content) {
+        generationFailure = result.failureReason ?? "gemini_failed";
+        return null;
+      }
+      const value = { content: result.content, generatedAt: new Date().toISOString() };
       await cache.set(raw.url, preferences, value);
       return value;
     });
-    if (!generated) return null;
+    if (!generated) return { article: null, failureReason: generationFailure };
     kidContent = generated.content;
     generatedAt = generated.generatedAt;
   }
   const style = styleByCategory.get(raw.category);
   const variant = `${preferences.gradeLevel}-${preferences.readingLevel}-${preferences.explanationLevel}`;
   const readableText = [...kidContent.easyExplanation, ...kidContent.whyItMatters].join(" ");
-  return {
+  return { article: {
     id: `news-${createHash("sha256").update(raw.url).digest("hex").slice(0, 16)}-${variant}`,
     category: raw.category, difficulty: preferences.gradeLevel, estimatedReadingTime: Math.max(1, Math.ceil(readableText.length / 400)),
     source: { title: raw.title, url: raw.url, publisher: raw.publisher, publishedAt: raw.publishedAt, description: raw.description },
     kidContent, generatedAt, sourceType: "news-api", emoji: style?.emoji ?? "📰", color: colorFor(raw.category),
-  };
+  } };
 }
 
 function chooseTargetCategories(interests: Category[], count: number): Category[] {

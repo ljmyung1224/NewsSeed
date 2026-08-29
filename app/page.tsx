@@ -3,6 +3,6 @@ import { getDailyNews } from "@/services/news/getDailyNews";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export default async function Home() {
-  const articles = await getDailyNews({ live: false });
+  const articles = await getDailyNews({ live: true });
   return <NewseedApp initialArticles={articles} authEnabled={isSupabaseConfigured()} />;
 }

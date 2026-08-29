@@ -2,24 +2,13 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { getSupabaseProjectRef, isSupabaseConfigured } from "@/lib/supabase/config";
 
-const PRODUCTION_ORIGIN = "https://newsseed.vercel.app";
-
-function productionOrigin() {
-  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!configuredSiteUrl) return PRODUCTION_ORIGIN;
-
-  try {
-    const origin = new URL(configuredSiteUrl).origin;
-    return origin === PRODUCTION_ORIGIN ? origin : PRODUCTION_ORIGIN;
-  } catch {
-    return PRODUCTION_ORIGIN;
-  }
-}
-
 function getAppOrigin(request: NextRequest) {
-  return process.env.NODE_ENV === "production"
-    ? productionOrigin()
-    : request.nextUrl.origin;
+  const url = request.nextUrl;
+  const isLocal = url.protocol === "http:" && url.hostname === "localhost" && url.port === "3000";
+  const isProduction =
+    url.protocol === "https:" && url.hostname === "newsseed.vercel.app" && url.port === "";
+
+  return isLocal || isProduction ? url.origin : null;
 }
 
 function safeNextPath(value: string | null) {
@@ -45,6 +34,13 @@ function authErrorDetails(error: unknown) {
 
 export async function GET(request: NextRequest) {
   const appOrigin = getAppOrigin(request);
+  if (!appOrigin) {
+    console.error("[NewsSeed][OAuth][A:origin] Callback origin is not allowed.", {
+      requestOrigin: request.nextUrl.origin,
+    });
+    return new Response("Invalid OAuth callback origin", { status: 400 });
+  }
+
   const params = request.nextUrl.searchParams;
   const code = params.get("code");
   const flowId = params.get("sb_flow_id");
@@ -108,7 +104,6 @@ export async function GET(request: NextRequest) {
       hasMatchingProjectPkceCookie: Boolean(
         serverProjectRef && pkceCookieNames.some(name => name.startsWith(`sb-${serverProjectRef}-auth-token`)),
       ),
-      configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? null,
       redirectDestination: `${appOrigin}${next}`,
     });
   }
