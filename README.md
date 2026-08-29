@@ -1,36 +1,24 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 뉴씨드 (NewsSeed)
 
-## Getting Started
+> 하루 한 장, 생각이 자라는 뉴스
 
-First, run the development server:
+뉴씨드는 어린이가 매일 자신의 관심사와 읽기 수준에 맞는 뉴스를 읽고, 낱말과 퀴즈를 통해 세상을 배우는 1일 1신문 학습 서비스입니다.
+
+## 로컬 실행
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+외부 서비스 없이 Mock 기사 fallback으로 완전한 학습 흐름이 동작합니다. 실제 뉴스·AI 연동을 준비하려면 `.env.example`을 복사해 `.env.local`을 만들고 서버 전용 키를 설정하세요. 현재 버전은 키가 있어도 외부 유료 API를 호출하지 않습니다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 소셜 로그인과 개인별 기록
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Supabase Auth를 통해 Google·Kakao 로그인을 지원합니다. Supabase 환경변수가 없으면 개발 편의를 위해 기존 localStorage 모드로 동작합니다. 환경변수를 설정하면 로그인이 필수가 되고, 온보딩 정보와 XP, streak, 기사 완료 기록이 사용자 계정별로 동기화됩니다.
 
-## Learn More
+설정 및 Vercel 배포 절차는 [`docs/AUTH_DEPLOYMENT.md`](docs/AUTH_DEPLOYMENT.md)를 참고하세요.
 
-To learn more about Next.js, take a look at the following resources:
+## 콘텐츠 원칙
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+실제 뉴스 원문을 재게시하지 않습니다. 원문의 사실과 주제를 바탕으로 어린이용 교육 콘텐츠를 새롭게 구성하고, 원문 출처와 링크를 표시합니다.
