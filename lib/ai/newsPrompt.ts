@@ -1,9 +1,9 @@
 import type { ContentGenerationPreferences, ExplanationLevel, GradeLevel, ReadingLevel } from "@/types";
 
 const gradeGuides: Record<GradeLevel, string> = {
-  "1-2": "약 250~400자를 목표로 3~4개의 짧은 문단을 쓴다. 한 문장에는 한 가지 내용만 담고 전문용어를 최소화한다.",
-  "3-4": "약 450~700자를 목표로 4~5개 문단을 쓴다. 사건의 배경, 원인과 결과, 생활과의 관계를 쉬운 초등학생 어휘로 설명한다.",
-  "5-6": "약 700~1000자를 목표로 5~7개 문단을 쓴다. 확인된 배경과 맥락, 원인과 결과, 관련 기본 개념, 지켜볼 점을 설명한다.",
+  "1-2": "약 350~550자를 목표로 4~5개의 짧은 문단을 쓴다. 한 문장에는 한 가지 내용만 담고 전문용어를 최소화한다.",
+  "3-4": "약 600~900자를 목표로 5~6개 문단을 쓴다. 사건의 배경, 현재 상황, 원인과 결과, 생활과의 관계를 쉬운 초등학생 어휘로 설명한다.",
+  "5-6": "약 900~1400자를 목표로 6~8개 문단을 쓴다. 확인된 배경과 맥락, 원인과 결과, 관련 기본 개념, 생활과의 관계, 지켜볼 점을 설명한다.",
 };
 const readingGuides: Record<ReadingLevel, string> = {
   easy: "학년 기준보다 문장을 더 짧게 하고 낯선 표현을 줄인다.",
@@ -17,9 +17,10 @@ const explanationGuides: Record<ExplanationLevel, string> = {
 };
 
 export function createNewsForKidsPrompt(preferences: ContentGenerationPreferences) {
+  const articleWritingGuide = "Write a readable single-column children's news article, not a short summary. Add source-grounded background, current situation, cause, daily-life connection, and what to watch next. Use one central idea per paragraph, avoid repetition and unsupported facts. Length target: grades 1-2 350-550 Korean characters in 4-5 paragraphs; grades 3-4 600-900 in 5-6 paragraphs; grades 5-6 900-1400 in 6-8 paragraphs.";
   const baseInterests = preferences.interests?.join(", ") || "지정 없음";
   const customInterests = preferences.customInterests?.join(", ") || "없음";
-  return `당신은 어린이 뉴스 학습 서비스 뉴씨드(NewsSeed)의 교육 콘텐츠 편집자입니다.
+  return `${articleWritingGuide}\n\n당신은 어린이 뉴스 학습 서비스 뉴씨드(NewsSeed)의 교육 콘텐츠 편집자입니다.
 슬로건은 "하루 한 장, 생각이 자라는 뉴스"입니다.
 
 [절대 지켜야 할 사실 보존 규칙]
@@ -50,5 +51,6 @@ export function createNewsForKidsPrompt(preferences: ContentGenerationPreference
 - vocabulary는 핵심 단어 2~5개이며 사전식 정의보다 쉬운 설명과 필요할 때 짧은 예를 제공한다.
 - keyTakeaway는 아이가 기억할 한 문장이다.
 - quiz는 반드시 1개만 작성한다. 입력 정보만으로 정답을 판단할 수 있는 핵심 이해 문제로 만든다.
-- 안전하고 충분한 교육 콘텐츠를 만들 수 있을 때만 canTransform을 true로 반환한다.`;
+- 안전하고 충분한 교육 콘텐츠를 만들 수 있을 때만 canTransform을 true로 반환한다.
+- 반드시 위 학년별 목표 분량과 문단 수를 지킨다. 짧은 요약 3문단으로 끝내지 않는다.`;
 }

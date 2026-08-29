@@ -47,6 +47,7 @@ export interface Article {
   kidContent: KidArticleContent;
   generatedAt?: string;
   sourceType: "mock" | "news-api";
+  imageUrl?: string;
   fallbackReason?: "live_disabled" | "missing_api_key" | "naver_api_failed" | "no_safe_candidate" | "gemini_failed" | "validation_failed";
   /** Presentation metadata. Replace with an asset service when editorial images are added. */
   emoji: string;

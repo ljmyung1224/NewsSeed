@@ -23,7 +23,7 @@ type BuildArticleResult = { article: Article | null; failureReason?: FallbackRea
 const styleByCategory = new Map(categories.map(item => [item.name, item]));
 
 export async function getDailyNews(options: DailyNewsOptions = {}): Promise<Article[]> {
-  const { interests = [], customInterests = [], difficulty = "3-4", readingLevel = "normal", explanationLevel = "easy", count: requestedCount = 3, live = true, newsProvider = naverApiHubProvider, contentTransformer = geminiProvider, contentCache = memoryArticleCache } = options;
+  const { interests = [], customInterests = [], difficulty = "3-4", readingLevel = "normal", explanationLevel = "easy", count: requestedCount = 1, live = true, newsProvider = naverApiHubProvider, contentTransformer = geminiProvider, contentCache = memoryArticleCache } = options;
   const count = Math.min(5, Math.max(1, requestedCount));
   const preferences: ContentGenerationPreferences = { gradeLevel: difficulty, readingLevel, explanationLevel, interests, customInterests };
   const fallback = (reason: FallbackReason) => selectDailyNews(mockArticles, interests, count).map(article => ({ ...article, fallbackReason: reason }));
@@ -38,7 +38,13 @@ export async function getDailyNews(options: DailyNewsOptions = {}): Promise<Arti
       Promise.all(customInterests.slice(0, 3).map(query => fetchNewsByQuery(query, fallbackCategory, newsProvider))),
     ]);
     const fetched = [...categoryFetched.flat(), ...customFetched.flat()];
-    const unique = deduplicateNews(fetched);
+    const unique = deduplicateNews(fetched).filter(article => {
+      const reason = unsuitableForChildren(article);
+      if (reason && process.env.NODE_ENV === "development") {
+        console.info("[NewsSeed][NewsFilter] candidate skipped", { category: article.category, reason });
+      }
+      return !reason;
+    });
     if (!unique.length) return fallback("naver_api_failed");
     const safetyResults = await Promise.all(unique.map(async article => ({ article, result: await evaluateArticleSafety(article) })));
     const safeArticles = safetyResults.filter(item => isAllowedForGrade(item.result, difficulty)).map(item => item.article);
@@ -124,6 +130,20 @@ function roundRobinByCategory(articles: RawNewsArticle[]) {
 }
 
 function deduplicateNews(articles: RawNewsArticle[]) { return articles.filter((article, index, all) => all.findIndex(item => item.url === article.url || item.title === article.title) === index); }
+
+// Topic-level exclusions keep the feed focused on useful, age-appropriate news.
+const unsuitableChildTopics: Array<[string, string]> = [
+  ["이혼", "private_relationship"], ["양육비", "private_relationship"], ["열애", "private_relationship"],
+  ["파경", "private_relationship"], ["사생활", "private_relationship"], ["결별", "private_relationship"],
+  ["인스타", "celebrity_gossip"], ["유튜브", "celebrity_gossip"], ["방송인", "celebrity_gossip"],
+  ["마약", "crime"], ["도박", "crime"], ["음주운전", "crime"], ["성폭력", "crime"],
+  ["살인", "violence"], ["폭행", "violence"], ["참사", "tragedy"], ["시신", "tragedy"],
+];
+
+function unsuitableForChildren(article: RawNewsArticle) {
+  const text = `${article.title} ${article.description ?? ""}`.toLocaleLowerCase("ko-KR");
+  return unsuitableChildTopics.find(([keyword]) => text.includes(keyword))?.[1];
+}
 
 function colorFor(category: Category) {
   const colors: Record<Category, string> = { "경제": "#f2b938", "과학": "#4f8ee8", "사회": "#d36b6b", "국제": "#5a79d6", "환경": "#42b873", "문화": "#b06acb", "스포츠": "#ff9d42", "기술": "#557fe8", "동물": "#36a7ce", "우주": "#7267f0" };

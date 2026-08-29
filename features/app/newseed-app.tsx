@@ -19,6 +19,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
   const [availableArticles, setAvailableArticles] = useState(initialArticles);
   const [ready, setReady] = useState(false);
   const [screen, setScreen] = useState<Screen>({ name: "home" });
+  const [earnedXp, setEarnedXp] = useState(0);
   const [guestMode, setGuestMode] = useState(false);
   const { user, ready: authReady } = useAuth(authEnabled);
   useEffect(() => {
@@ -30,7 +31,8 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
       const localState = accountState.profile ? accountState : anonymousState;
       const cloudState = user ? await loadCloudState(user.id) : null;
       if (!active) return;
-      const nextState = cloudState ?? localState;
+      // Keep a locally edited profile usable even if remote sync is temporarily unavailable.
+      const nextState = localState.profile ? { ...cloudState, ...localState, stats: cloudState?.stats ?? localState.stats } : (cloudState ?? localState);
       setState(nextState);
       setReady(true);
       if (user && !cloudState) {
@@ -57,7 +59,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
       .catch(error => { if (error instanceof Error && error.name !== "AbortError") console.error("[NewsSeed] Using initial mock news.", error); });
     return () => controller.abort();
   }, [ready, state.profile]);
-  const articles = useMemo(() => selectDailyNews(availableArticles, state.profile?.interests ?? [], state.profile?.dailyArticleCount ?? 3), [availableArticles, state.profile?.dailyArticleCount, state.profile?.interests]);
+  const articles = useMemo(() => selectDailyNews(availableArticles, state.profile?.interests ?? [], state.profile?.dailyArticleCount ?? 1), [availableArticles, state.profile?.dailyArticleCount, state.profile?.interests]);
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
     articles.forEach(article => console.info("[NewsSeed Article]", article.sourceType === "news-api" ? {
@@ -70,20 +72,17 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
   if (!state.profile) return <OnboardingScreen onComplete={(profile: UserPreferences) => { setState(current => ({ ...current, profile })); setScreen({name:"home"}); }} />;
   const openNext = () => { const done = state.stats.articleCompletions[TODAY] ?? []; const next = articles.findIndex(article => !done.includes(article.id)); setScreen({ name: "lesson", index: next === -1 ? 0 : next }); };
   const finishArticle = (index: number) => {
+    const alreadyCompleted = (state.stats.articleCompletions[TODAY] ?? []).includes(articles[index].id);
     const newStats = completeArticle(state.stats, TODAY, articles[index].id);
     const completed = newStats.articleCompletions[TODAY] ?? [];
-    const nextIndex = articles.findIndex(article => !completed.includes(article.id));
-    if (nextIndex !== -1) {
-      setState(current => ({ ...current, stats: newStats }));
-      setScreen({ name: "lesson", index: nextIndex });
-      window.scrollTo(0, 0);
-    } else {
-      setState(current => ({ ...current, stats: completeDay(newStats, TODAY) }));
-      setScreen({ name: "complete" });
-    }
+    const dayComplete = completed.length >= articles.length;
+    const nextStats = alreadyCompleted ? newStats : (dayComplete ? completeDay(newStats, TODAY) : newStats);
+    setEarnedXp(alreadyCompleted ? 0 : nextStats.xp - state.stats.xp);
+    setState(current => ({ ...current, stats: nextStats }));
+    setScreen({ name: "complete" });
   };
   if (screen.name === "lesson") return <LessonScreen key={articles[screen.index].id} article={articles[screen.index]} index={screen.index} total={articles.length} onBack={()=>setScreen({name:"home"})} onComplete={()=>finishArticle(screen.index)}/>;
-  if (screen.name === "complete") return <CompletionScreen xp={state.stats.xp} streak={state.stats.streak} earnedXp={articles.length * 10 + 10} onHome={()=>setScreen({name:"home"})}/>;
+  if (screen.name === "complete") return <CompletionScreen xp={state.stats.xp} streak={state.stats.streak} earnedXp={earnedXp} completedCount={(state.stats.articleCompletions[TODAY] ?? []).length} totalCount={articles.length} onHome={()=>setScreen({name:"home"})}/>;
   return <HomeScreen profile={state.profile} stats={state.stats} articles={articles} accountLabel={user?.email ?? user?.user_metadata?.name} onStart={openNext} onOpenArticle={index=>setScreen({name:"lesson",index})} onAccount={() => router.push("/profile")}/>;
 }
 

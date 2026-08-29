@@ -10,7 +10,7 @@ export function loadState(userId?: string): AppState {
   if (typeof window === "undefined") return { profile: null, stats: initialStats };
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey(userId)) ?? "null") as Partial<AppState> | null;
-    return { profile: normalizePreferences(saved?.profile), stats: { ...initialStats, ...saved?.stats } };
+    return { profile: normalizePreferences(saved?.profile), stats: normalizeLearningStats({ ...initialStats, ...saved?.stats }) };
   } catch { return { profile: null, stats: initialStats }; }
 }
 
@@ -21,9 +21,14 @@ export function saveState(state: AppState, userId?: string) {
 export function clearAnonymousState() { localStorage.removeItem(STORAGE_KEY); }
 
 export function completeArticle(stats: LearningStats, date: string, articleId: string): LearningStats {
-  const current = stats.articleCompletions[date] ?? [];
-  if (current.includes(articleId)) return stats;
+  const current = [...new Set(stats.articleCompletions[date] ?? [])];
+  if (current.includes(articleId)) return { ...stats, articleCompletions: { ...stats.articleCompletions, [date]: current } };
   return { ...stats, xp: stats.xp + 10, articleCompletions: { ...stats.articleCompletions, [date]: [...current, articleId] } };
+}
+
+export function normalizeLearningStats(stats: LearningStats): LearningStats {
+  const articleCompletions = Object.fromEntries(Object.entries(stats.articleCompletions ?? {}).map(([date, ids]) => [date, [...new Set(ids)]]));
+  return { ...stats, articleCompletions };
 }
 
 export function completeDay(stats: LearningStats, date: string): LearningStats {
@@ -36,7 +41,7 @@ export const defaultPreferences: Omit<UserPreferences, "nickname" | "gradeLevel"
   customInterests: [],
   readingLevel: "normal",
   explanationLevel: "easy",
-  dailyArticleCount: 3,
+  dailyArticleCount: 1,
   onboardingCompleted: true,
 };
 

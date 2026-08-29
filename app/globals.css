@@ -22,4 +22,8 @@
 /* Keep carousel controls clear of the card's rounded bottom corners. */
 .news-card-nav{margin-right:12px;margin-left:12px}
 @media (max-width:1023px){.news-card-nav{margin-right:6px;margin-left:6px}}
+
+.article-lead{font-family:var(--font-body),"Apple SD Gothic Neo","Noto Sans KR",sans-serif;max-width:38rem}
+.article-hero{border:1px solid var(--line);box-shadow:0 8px 0 rgba(213,224,216,.55)}
+.article-copy{max-width:42rem}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

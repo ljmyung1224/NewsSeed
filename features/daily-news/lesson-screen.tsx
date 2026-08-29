@@ -15,6 +15,7 @@ export function LessonScreen({ article, index, total, onBack, onComplete }: { ar
   const [checked, setChecked] = useState(false);
   const question = article.kidContent.quiz[0];
   const correct = selected === question.answer;
+  const lead = article.kidContent.easyExplanation[0]?.split(/(?<=[.!?。！？])\s+/)[0] ?? "";
 
   const submit = () => {
     if (selected === null) return;
@@ -32,6 +33,8 @@ export function LessonScreen({ article, index, total, onBack, onComplete }: { ar
       {phase === "read" ? <div className="animate-rise">
         <div className="mb-5 flex items-center justify-between"><span className="rounded-full px-3 py-1.5 text-xs font-black" style={{ backgroundColor: `${article.color}18`, color: article.color }}>{article.emoji} {article.category}</span><span className="flex items-center gap-1.5 text-xs font-bold text-[var(--muted)]"><ClockIcon size={15}/>{article.estimatedReadingTime}분</span></div>
         <h1 className="type-display text-[32px] leading-[1.36] sm:text-[42px]">{article.kidContent.title}</h1>
+        <p className="article-lead mt-4 text-lg font-semibold leading-relaxed text-[#526158]">{lead}</p>
+        {article.imageUrl ? <div role="img" aria-label="기사 대표 이미지" className="article-hero mt-6 aspect-[16/8] w-full rounded-[24px] bg-cover bg-center" style={{ backgroundImage: `url(${article.imageUrl})` }}/> : <div className="article-hero mt-6 flex aspect-[16/8] items-center justify-center overflow-hidden rounded-[24px]" style={{ background: `linear-gradient(135deg, ${article.color}28, #ffffff 72%)` }}><span className="text-7xl" aria-hidden="true">{article.emoji}</span></div>}
         <section className="mt-9"><p className="eyebrow">차근차근 읽어요</p><h2 className="mt-1 text-xl font-black sm:text-2xl">쉬운 설명</h2><div className="article-copy mt-5 text-[#344139]">{article.kidContent.easyExplanation.map((paragraph, paragraphIndex) => <p key={paragraphIndex}>{renderVocabulary(paragraph, article.kidContent.vocabulary, setVocab)}</p>)}</div></section>
         <section className="mt-10 rounded-[24px] bg-[#eef5ff] p-5 sm:p-7"><p className="text-sm font-black text-[#4c72ad]">생각을 한 뼘 더</p><h2 className="mt-1 text-xl font-black">왜 중요할까요?</h2><div className="article-support-copy mt-4 space-y-4 text-[#39495d]">{article.kidContent.whyItMatters.map((paragraph, paragraphIndex) => <p key={paragraphIndex}>{renderVocabulary(paragraph, article.kidContent.vocabulary, setVocab)}</p>)}</div></section>
         <section className="mt-7 rounded-[22px] border border-[var(--line)] bg-white p-5 sm:p-6"><div className="flex items-center gap-2 font-black"><BookIcon size={19} className="text-[var(--green)]"/>어려운 단어</div><p className="mt-1 text-xs text-[var(--muted)]">단어를 눌러 어린이용 설명을 읽어 보세요.</p><div className="mt-4 flex flex-wrap gap-2">{article.kidContent.vocabulary.map(item => <button key={item.word} onClick={() => setVocab(item)} className="rounded-xl bg-[var(--green-soft)] px-3 py-2 text-sm font-extrabold text-[var(--green-deep)] transition hover:bg-[#d7f1da] active:scale-[.97]">{item.word}</button>)}</div></section>
@@ -42,7 +45,7 @@ export function LessonScreen({ article, index, total, onBack, onComplete }: { ar
         <section className="card mt-7 p-5 sm:p-8"><p className="text-xs font-black text-[var(--green)]">Q1 / 1</p><h2 className="mt-2 text-xl font-black leading-relaxed">{question.question}</h2><div className="mt-6 space-y-3">{question.options.map((option, optionIndex) => { const isAnswer = optionIndex === question.answer; const optionState = checked ? isAnswer ? "correct" : selected === optionIndex ? "wrong" : "" : selected === optionIndex ? "selected" : ""; return <button disabled={checked} key={`${question.id}-${optionIndex}`} onClick={() => setSelected(optionIndex)} className={`quiz-option ${optionState}`}><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-current text-xs font-black">{String.fromCharCode(65 + optionIndex)}</span><span className="flex-1">{option}</span>{checked && isAnswer && <CheckIcon size={20}/>}</button>; })}</div>
           {checked && <div className={`mt-5 animate-pop rounded-2xl p-4 ${correct ? "bg-[var(--green-soft)] text-[var(--green-deep)]" : "bg-[#fff0ec] text-[#9e432f]"}`}><p className="font-black">{correct ? "정답이에요! 생각 씨앗이 자랐어요 🌱" : "조금 아쉬워요. 설명을 읽고 다시 생각해 볼까요?"}</p><p className="mt-1 text-sm font-medium leading-relaxed">{question.explanation}</p></div>}
         </section>
-        <button disabled={selected === null} onClick={submit} className="btn-primary mt-5 w-full">{checked ? correct ? "다음 기사로" : "다시 풀기" : "정답 확인하기"}{checked && correct && <ArrowIcon size={18}/>}</button>
+        <button disabled={selected === null} onClick={submit} className="btn-primary mt-5 w-full">{checked ? correct ? "다음" : "다시 풀기" : "정답 확인하기"}{checked && correct && <ArrowIcon size={18}/>}</button>
         <SourcePanel article={article}/>
       </div>}
     </article>

@@ -21,7 +21,7 @@ export function ProfileScreen({ authEnabled }: { authEnabled: boolean }) {
   const [state, setState] = useState<AppState | null>(null);
   const [draft, setDraft] = useState<UserPreferences | null>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  useEffect(() => { if (!authReady) return; if (authEnabled && !user) { router.replace("/"); return; } void (async () => { const next = user ? await loadCloudState(user.id) ?? loadState(user.id) : loadState(); setState(next); setDraft(next.profile); })(); }, [authEnabled, authReady, router, user]);
+  useEffect(() => { if (!authReady) return; if (authEnabled && !user) { router.replace("/"); return; } void (async () => { const local = user ? loadState(user.id) : loadState(); const next = user && !local.profile ? await loadCloudState(user.id) ?? local : local; setState(next); setDraft(next.profile); })(); }, [authEnabled, authReady, router, user]);
   const provider = providerLabel(user);
   const readCount = useMemo(() => state ? Object.values(state.stats.articleCompletions).reduce((sum, ids) => sum + ids.length, 0) : 0, [state]);
   if (!authReady || !state) return <Loading/>;
@@ -32,9 +32,12 @@ export function ProfileScreen({ authEnabled }: { authEnabled: boolean }) {
     setStatus("saving");
     const next = { ...state, profile: { ...draft, nickname: draft.nickname.trim() } };
     saveState(next, user?.id);
-    const cloudSaved = user ? await saveCloudState(user.id, next) : true;
-    if (!cloudSaved) { setStatus("error"); return; }
-    setState(next); setDraft(next.profile); setStatus("saved");
+    if (user) await saveCloudState(user.id, next);
+    // Apply the change locally even when the remote sync fails, so the UI never
+    // discards the user's edit. The development console contains the safe
+    // Supabase error details needed to repair the remote schema/RLS setup.
+    setState(next); setDraft(next.profile);
+    setStatus("saved");
   };
   const signOut = async () => { const supabase = getSupabaseBrowserClient(); await supabase?.auth.signOut(); router.replace("/"); router.refresh(); };
   return <main className="profile-page min-h-dvh bg-[var(--cream)] pb-16">

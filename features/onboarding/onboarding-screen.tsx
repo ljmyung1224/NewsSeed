@@ -25,7 +25,7 @@ export function OnboardingScreen({ onComplete, initialPreferences }: { onComplet
   const [customInterests, setCustomInterests] = useState(initialPreferences?.customInterests ?? []);
   const [readingLevel, setReadingLevel] = useState<ReadingLevel>(initialPreferences?.readingLevel ?? "normal");
   const [explanationLevel, setExplanationLevel] = useState<ExplanationLevel>(initialPreferences?.explanationLevel ?? "easy");
-  const [dailyArticleCount, setDailyArticleCount] = useState(initialPreferences?.dailyArticleCount ?? 3);
+  const [dailyArticleCount, setDailyArticleCount] = useState(initialPreferences?.dailyArticleCount ?? 1);
   const canContinue = step === 0 ? nickname.trim().length >= 2 : step === 1 ? gradeLevel !== null : step === 2 ? interests.length + customInterests.length > 0 : true;
   const next = () => {
     if (!canContinue) return;

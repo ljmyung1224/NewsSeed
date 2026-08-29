@@ -19,19 +19,21 @@ async function main() {
   const payload = await response.json() as { items?: Array<{ title?: string; description?: string; originallink?: string; link?: string; pubDate?: string }> };
   const candidates = (payload.items ?? []).filter(item => item.title && item.description && (item.originallink || item.link));
   let transformedTitle = "";
+  let transformedStats: { characters: number; paragraphs: number } | undefined;
   let lastReason = "no_candidate";
   for (const item of candidates.slice(0, 10)) {
     const preferences: ContentGenerationPreferences = { gradeLevel: "3-4", readingLevel: "normal", explanationLevel: "easy", interests: [test.category], customInterests: [] };
     try {
       const content = await transformWithGemini({ title: clean(item.title), description: clean(item.description), url: item.originallink || item.link || "", publisher: publisher(item.originallink || item.link || ""), publishedAt: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(), category: test.category }, preferences, createNewsForKidsPrompt(preferences));
       transformedTitle = content.title;
+      transformedStats = { characters: content.easyExplanation.join("").length, paragraphs: content.easyExplanation.length };
       lastReason = "none";
       break;
     } catch (error) {
       lastReason = error instanceof GeminiCallError ? `${error.stage}:${error.reason}` : "unknown";
     }
   }
-    results.push({ category: test.category, naverFetch: candidates.length > 0, candidateCount: candidates.length, geminiRequest: Boolean(transformedTitle), schemaValid: Boolean(transformedTitle), fallback: !transformedTitle, title: transformedTitle || "-", reason: lastReason });
+    results.push({ category: test.category, naverFetch: candidates.length > 0, candidateCount: candidates.length, geminiRequest: Boolean(transformedTitle), schemaValid: Boolean(transformedTitle), fallback: !transformedTitle, title: transformedTitle || "-", characters: transformedStats?.characters ?? 0, paragraphs: transformedStats?.paragraphs ?? 0, reason: lastReason });
   }
   console.table(results);
   console.log(`model: ${GEMINI_MODEL}`);
