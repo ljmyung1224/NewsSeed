@@ -1,9 +1,9 @@
 import type { Category, DailyMissionId, SeedRecord } from "@/types";
 
-export const missionDefinitions: { id: DailyMissionId; title: string; target: number; rewardXp: number; emoji: string }[] = [
-  { id: "read-two", title: "기사 2개 읽기", target: 2, rewardXp: 15, emoji: "📖" },
-  { id: "quiz-two", title: "퀴즈 2개 맞히기", target: 2, rewardXp: 15, emoji: "💡" },
-  { id: "explore-one", title: "새로운 분야 1개 읽기", target: 1, rewardXp: 20, emoji: "🧭" },
+export const missionDefinitions: { id: DailyMissionId; title: string; target: number; rewardXp: number; rewardLeaves: number; emoji: string }[] = [
+  { id: "read-two", title: "기사 2개 읽기", target: 2, rewardXp: 5, rewardLeaves: 3, emoji: "📖" },
+  { id: "quiz-two", title: "퀴즈 2개 맞히기", target: 2, rewardXp: 5, rewardLeaves: 3, emoji: "💡" },
+  { id: "explore-one", title: "새로운 분야 1개 읽기", target: 1, rewardXp: 5, rewardLeaves: 4, emoji: "🧭" },
 ];
 
 export function recordDateKey(record: SeedRecord) {
@@ -41,17 +41,17 @@ export function getCategorySeedCounts(records: SeedRecord[]): Record<Category, n
 }
 
 export const treeStages = [
-  { name: "씨앗", minXp: 0, emoji: "🌰" },
-  { name: "새싹", minXp: 50, emoji: "🌱" },
-  { name: "어린잎", minXp: 150, emoji: "🌿" },
-  { name: "작은 나무", minXp: 300, emoji: "🌳" },
-  { name: "지식나무", minXp: 600, emoji: "🌲" },
+  { id: "seed", name: "씨앗", minXp: 0, nextXp: 100, emoji: "🌰", shopLevel: 0 },
+  { id: "sprout", name: "새싹", minXp: 100, nextXp: 300, emoji: "🌱", shopLevel: 0 },
+  { id: "young-tree", name: "어린나무", minXp: 300, nextXp: 700, emoji: "🌳", shopLevel: 1 },
+  { id: "green-tree", name: "푸른나무", minXp: 700, nextXp: 1500, emoji: "🌲", shopLevel: 2 },
+  { id: "knowledge-tree", name: "지식나무", minXp: 1500, nextXp: null, emoji: "🌳", shopLevel: 3 },
 ] as const;
 
 export function getTreeGrowth(xp: number) {
   const index = treeStages.findLastIndex(stage => xp >= stage.minXp);
   const stage = treeStages[Math.max(0, index)];
   const next = treeStages[index + 1];
-  const progress = next ? Math.min(100, Math.round(((xp - stage.minXp) / (next.minXp - stage.minXp)) * 100)) : 100;
-  return { stage, next, progress };
+  const progress = stage.nextXp ? Math.min(99, Math.max(0, Math.floor(((xp - stage.minXp) / (stage.nextXp - stage.minXp)) * 100))) : 100;
+  return { stage, next, progress, customizationUnlocked: xp >= 300 };
 }

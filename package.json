@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test:gemini": "node --env-file=.env.local --import tsx scripts/test-gemini.ts",
     "test:news-pipeline": "node --env-file=.env.local --import tsx scripts/test-news-pipeline.ts",
-    "test:economy-filter": "node --env-file=.env.local --import tsx scripts/audit-economy-filter.ts"
+    "test:economy-filter": "node --env-file=.env.local --import tsx scripts/audit-economy-filter.ts",
+    "test:tree": "node --import tsx scripts/test-tree-system.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

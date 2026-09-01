@@ -9,6 +9,7 @@
    - `supabase/migrations/202608290003_personalization.sql`
    - `supabase/migrations/202609010004_daily_missions.sql`
    - `supabase/migrations/202609010005_user_seed_records.sql`
+   - `supabase/migrations/202609010006_tree_shop.sql`
 3. Project Settings → API에서 Project URL과 Publishable key를 확인합니다.
 4. 로컬 `.env.local`과 Vercel 환경변수에 다음 값을 설정합니다.
 
@@ -59,3 +60,4 @@ npm run build
 3. 동일 기사를 같은 날 다시 완료해도 `(user_id, article_id, completed_on)` 기준으로 행이 하나만 유지됩니다.
 4. 다른 브라우저에서 같은 계정으로 로그인하면 씨앗 보관함에 같은 기록이 표시되고, 항목을 눌러 저장 당시 기사 내용을 다시 열 수 있습니다.
 5. 다른 사용자로 로그인했을 때 해당 기록이 조회되지 않아야 합니다(RLS 확인).
+6. `user_learning_state`의 `leaf_reward_events`, `tree_item_purchases`, `owned_tree_items`, `equipped_tree_items`가 새로고침 후에도 유지되는지 확인합니다.

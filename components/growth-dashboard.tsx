@@ -1,12 +1,14 @@
 import type { LearningStats, SeedRecord } from "@/types";
 import { getCategorySeedCounts, getMissionProgress, getTreeGrowth, missionDefinitions } from "@/lib/growth";
 import { TODAY } from "@/lib/date";
+import Link from "next/link";
+import { TreePreview } from "@/components/tree-preview";
 
 const categoryEmoji: Record<string, string> = { 경제: "💰", 과학: "🔬", 사회: "🏘️", 국제: "🌏", 환경: "🌱", 문화: "🎨", 스포츠: "⚽", 기술: "💻", 동물: "🐾", 우주: "🚀" };
 
-export function KnowledgeTreeCard({ xp }: { xp: number }) {
-  const { stage, next, progress } = getTreeGrowth(xp);
-  return <section className="card p-4 sm:p-5"><div className="flex items-start justify-between"><div><p className="text-[11px] font-extrabold tracking-[0.12em] text-[var(--green)]">KNOWLEDGE TREE</p><h2 className="type-display mt-0.5 text-xl">나의 지식나무</h2></div><span className="text-4xl" aria-label={stage.name}>{stage.emoji}</span></div><div className="mt-3 flex items-end justify-between"><div><p className="text-lg font-black text-[var(--green-deep)]">{stage.name}</p><p className="text-[11px] font-bold text-[var(--muted)]">{next ? `${next.name}까지 ${next.minXp - xp} XP` : "지식나무가 무럭무럭 자랐어요!"}</p></div><strong className="text-xs text-[var(--green)]">{xp} XP</strong></div><div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[#e8efe9]"><div className="h-full rounded-full bg-gradient-to-r from-[#63c65c] to-[#2faa59] transition-all" style={{ width: `${progress}%` }}/></div><div className="mt-2 flex justify-between text-base opacity-70">{["🌰","🌱","🌿","🌳","🌲"].map((emoji,index)=><span key={emoji} className={xp >= [0,50,150,300,600][index] ? "grayscale-0" : "grayscale opacity-35"}>{emoji}</span>)}</div></section>;
+export function KnowledgeTreeCard({ stats }: { stats: LearningStats }) {
+  const { stage, next, progress, customizationUnlocked } = getTreeGrowth(stats.xp);
+  return <Link href="/tree" className="card block p-4 transition hover:-translate-y-0.5 sm:p-5"><div className="flex items-start justify-between"><div><p className="text-[11px] font-extrabold tracking-[0.12em] text-[var(--green)]">KNOWLEDGE TREE</p><h2 className="type-display mt-0.5 text-xl">나의 지식나무</h2></div><div className="w-20"><TreePreview xp={stats.xp} equipped={stats.equippedTreeItems} compact/></div></div><div className="mt-3 flex items-end justify-between"><div><p className="text-lg font-black text-[var(--green-deep)]">{stage.name}</p><p className="text-[11px] font-bold text-[var(--muted)]">{next ? `${next.name}까지 ${next.minXp - stats.xp} XP` : "지식나무가 완전히 자랐어요!"}</p></div><strong className="text-xs text-[var(--green)]">{stats.xp} XP · 🍃 {stats.leafCurrency}</strong></div><div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[#e8efe9]"><div className="h-full rounded-full bg-gradient-to-r from-[#63c65c] to-[#2faa59] transition-all" style={{ width: `${progress}%` }}/></div><p className="mt-2 text-[11px] font-black text-[var(--muted)]">{customizationUnlocked ? "나무 꾸미기 →" : `🔒 어린나무까지 ${Math.max(0, 300 - stats.xp)} XP`}</p></Link>;
 }
 
 export function DailyMissionCard({ stats, records }: { stats: LearningStats; records: SeedRecord[] }) {
@@ -18,7 +20,7 @@ export function DailyMissionCard({ stats, records }: { stats: LearningStats; rec
       const done = rewarded.includes(mission.id);
       return <div key={mission.id} className={`rounded-xl border p-2.5 ${done ? "border-[#a9ddb5] bg-[#effaf1]" : "border-[var(--line)] bg-[#fafcfb]"}`}>
         <div className="flex items-center gap-2.5"><span className="grid h-8 w-8 place-items-center rounded-lg bg-white text-base shadow-sm">{done ? "✅" : mission.emoji}</span><div className="min-w-0 flex-1">
-          <div className="flex justify-between gap-2"><p className="truncate text-xs font-black sm:text-sm">{mission.title}</p><span className="shrink-0 text-[11px] font-black text-[var(--green)]">+{mission.rewardXp} XP</span></div>
+          <div className="flex justify-between gap-2"><p className="truncate text-xs font-black sm:text-sm">{mission.title}</p><span className="shrink-0 text-[11px] font-black text-[var(--green)]">+{mission.rewardXp} XP · +{mission.rewardLeaves} 🍃</span></div>
           <div className="mt-1.5 flex items-center gap-2"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e5ebe7]"><div className="h-full rounded-full bg-[var(--green)]" style={{ width: `${Math.min(100, progress[mission.id] / mission.target * 100)}%` }}/></div><p className="text-[10px] font-bold text-[var(--muted)]">{progress[mission.id]}/{mission.target}</p></div>
         </div></div>
       </div>;

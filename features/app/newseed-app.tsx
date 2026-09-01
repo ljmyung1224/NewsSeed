@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AppState, Article, SeedRecord, UserPreferences } from "@/types";
 import { selectDailyNews } from "@/services/news/selectDailyNews";
 import { TODAY } from "@/lib/date";
-import { clearAnonymousState, completeArticle, completeDailyMissions, completeDay, initialStats, loadSeedRecords, loadState, mergeSeedRecords, replaceSeedRecords, saveState, saveSeedRecord } from "@/lib/storage";
+import { clearAnonymousState, completeArticle, completeDailyMissions, completeDay, grantLearningLeaves, initialStats, loadSeedRecords, loadState, mergeLearningStats, mergeSeedRecords, replaceSeedRecords, saveState, saveSeedRecord } from "@/lib/storage";
 import { OnboardingScreen } from "@/features/onboarding/onboarding-screen";
 import { HomeScreen } from "@/features/daily-news/home-screen";
 import { LessonScreen } from "@/features/daily-news/lesson-screen";
@@ -21,6 +21,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
   const [ready, setReady] = useState(false);
   const [screen, setScreen] = useState<Screen>({ name: "home" });
   const [earnedXp, setEarnedXp] = useState(0);
+  const [earnedLeaves, setEarnedLeaves] = useState(0);
   const [seedRecords, setSeedRecords] = useState<SeedRecord[]>([]);
   const [guestMode, setGuestMode] = useState(false);
   const [newsStatus, setNewsStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -38,7 +39,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
       const [cloudState, cloudSeeds] = user ? await Promise.all([loadCloudState(user.id), loadCloudSeedRecords(user.id)]) : [null, []];
       if (!active) return;
       // Keep a locally edited profile usable even if remote sync is temporarily unavailable.
-      const nextState = localState.profile ? { ...cloudState, ...localState, stats: cloudState?.stats ?? localState.stats } : (cloudState ?? localState);
+      const nextState = localState.profile ? { ...cloudState, ...localState, stats: cloudState ? mergeLearningStats(localState.stats, cloudState.stats) : localState.stats } : (cloudState ?? localState);
       const mergedSeeds = mergeSeedRecords(accountSeeds, anonymousSeeds, cloudSeeds);
       setState(nextState);
       setSeedRecords(mergedSeeds);
@@ -95,6 +96,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
   if (newsStatus === "error" || !articles.length) return <NewsUnavailableScreen onRetry={() => setNewsRetry(current => current + 1)}/>;
   const openNext = () => { const done = state.stats.articleCompletions[TODAY] ?? []; const next = articles.findIndex(article => !done.includes(article.id)); setScreen({ name: "lesson", index: next === -1 ? 0 : next }); };
   const finishArticle = (index: number) => {
+    setEarnedLeaves(0);
     const alreadyCompleted = (state.stats.articleCompletions[TODAY] ?? []).includes(articles[index].id);
     const newStats = completeArticle(state.stats, TODAY, articles[index].id);
     const completed = newStats.articleCompletions[TODAY] ?? [];
@@ -104,7 +106,11 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
       const completedAt = new Date().toISOString();
       const provisionalRecord: SeedRecord = { article: articles[index], completedAt, xpEarned: 0, quizCompleted: true };
       const nextRecords = [provisionalRecord, ...seedRecords];
-      nextStats = completeDailyMissions(nextStats, TODAY, nextRecords).stats;
+      const missionResult = completeDailyMissions(nextStats, TODAY, nextRecords);
+      nextStats = missionResult.stats;
+      const leafResult = grantLearningLeaves(nextStats, TODAY, articles[index].id, missionResult.newlyCompleted);
+      nextStats = leafResult.stats;
+      setEarnedLeaves(leafResult.earnedLeaves);
       const record = { ...provisionalRecord, xpEarned: nextStats.xp - state.stats.xp };
       saveSeedRecord(record, user?.id);
       setSeedRecords(current => mergeSeedRecords([record], current));
@@ -115,8 +121,13 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
     setScreen({ name: "complete" });
   };
   if (screen.name === "lesson") return <LessonScreen key={articles[screen.index].id} article={articles[screen.index]} index={screen.index} total={articles.length} onBack={()=>setScreen({name:"home"})} onComplete={()=>finishArticle(screen.index)}/>;
-  if (screen.name === "complete") return <CompletionScreen xp={state.stats.xp} streak={state.stats.streak} earnedXp={earnedXp} completedCount={(state.stats.articleCompletions[TODAY] ?? []).length} totalCount={articles.length} onHome={()=>setScreen({name:"home"})}/>;
-  return <HomeScreen profile={state.profile} stats={state.stats} seedRecords={seedRecords} articles={articles} accountLabel={user?.email ?? user?.user_metadata?.name} onStart={openNext} onOpenArticle={index=>setScreen({name:"lesson",index})} onAccount={() => router.push("/profile")}/>;
+  if (screen.name === "complete") return <CompletionScreen xp={state.stats.xp} streak={state.stats.streak} earnedXp={earnedXp} earnedLeaves={earnedLeaves} completedCount={(state.stats.articleCompletions[TODAY] ?? []).length} totalCount={articles.length} onHome={()=>setScreen({name:"home"})}/>;
+  const showTreeUnlock = state.stats.xp >= 300 && !state.stats.treeCustomizationUnlockSeen;
+  const acknowledgeTreeUnlock = (customize: boolean) => {
+    setState(current => ({ ...current, stats: { ...current.stats, treeCustomizationUnlockSeen: true, treeUpdatedAt: new Date().toISOString() } }));
+    if (customize) router.push("/tree/customize");
+  };
+  return <><HomeScreen profile={state.profile} stats={state.stats} seedRecords={seedRecords} articles={articles} accountLabel={user?.email ?? user?.user_metadata?.name} onStart={openNext} onOpenArticle={index=>setScreen({name:"lesson",index})} onAccount={() => router.push("/profile")}/>{showTreeUnlock && <div className="fixed inset-0 z-50 grid place-items-center bg-[#10281d]/55 px-5 backdrop-blur-sm"><section className="card w-full max-w-md p-7 text-center"><span className="text-5xl">🎉</span><h2 className="type-display mt-4 text-3xl">어린나무가 되었어요!</h2><p className="mt-3 leading-relaxed text-[var(--muted)]">이제 나만의 지식나무를<br/>꾸밀 수 있어요.</p><button className="btn-primary mt-6 w-full" onClick={() => acknowledgeTreeUnlock(true)}>꾸미러 가기</button><button className="mt-3 text-sm font-black text-[var(--muted)]" onClick={() => acknowledgeTreeUnlock(false)}>나중에 할게요</button></section></div>}</>;
 }
 
 function LoadingScreen({ label }: { label: string }) {

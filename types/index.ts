@@ -87,9 +87,19 @@ export interface LearningStats {
   completedDates: string[];
   articleCompletions: Record<string, string[]>;
   missionRewards: Record<string, DailyMissionId[]>;
+  leafCurrency: number;
+  leafRewardEvents: Record<string, number>;
+  treeItemPurchases: Record<string, { cost: number; purchasedAt: string }>;
+  ownedTreeItems: string[];
+  equippedTreeItems: EquippedTreeItems;
+  treeCustomizationUnlockSeen: boolean;
+  treeUpdatedAt: string | null;
 }
 
 export type DailyMissionId = "read-two" | "quiz-two" | "explore-one";
+
+export type TreeItemCategory = "pot" | "decoration" | "background" | "friend";
+export interface EquippedTreeItems { pot: string; decoration: string; background: string; friend: string; }
 
 export interface AppState {
   profile: UserPreferences | null;
