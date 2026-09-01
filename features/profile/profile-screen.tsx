@@ -20,7 +20,8 @@ export function ProfileScreen({ authEnabled }: { authEnabled: boolean }) {
   const { user, ready: authReady } = useAuth(authEnabled);
   const [state, setState] = useState<AppState | null>(null);
   const [draft, setDraft] = useState<UserPreferences | null>(null);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error" | "deleting">("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "cloud-error">("idle");
+  const [deleteStatus, setDeleteStatus] = useState<"idle" | "deleting" | "error">("idle");
   useEffect(() => { if (!authReady) return; if (authEnabled && !user) { router.replace("/"); return; } void (async () => { const local = user ? loadState(user.id) : loadState(); const next = user && !local.profile ? await loadCloudState(user.id) ?? local : local; setState(next); setDraft(next.profile); })(); }, [authEnabled, authReady, router, user]);
   const provider = providerLabel(user);
   const readCount = useMemo(() => state ? Object.values(state.stats.articleCompletions).reduce((sum, ids) => sum + ids.length, 0) : 0, [state]);
@@ -29,23 +30,23 @@ export function ProfileScreen({ authEnabled }: { authEnabled: boolean }) {
   const update = <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => setDraft(current => current ? { ...current, [key]: value } : current);
   const save = async () => {
     if (!draft.nickname.trim() || draft.interests.length + draft.customInterests.length === 0) return;
-    setStatus("saving");
+    setSaveStatus("saving");
     const next = { ...state, profile: { ...draft, nickname: draft.nickname.trim() } };
     saveState(next, user?.id);
-    if (user) await saveCloudState(user.id, next);
+    const cloudSaved = user ? await saveCloudState(user.id, next) : true;
     // Apply the change locally even when the remote sync fails, so the UI never
     // discards the user's edit. The development console contains the safe
     // Supabase error details needed to repair the remote schema/RLS setup.
     setState(next); setDraft(next.profile);
-    setStatus("saved");
+    setSaveStatus(cloudSaved ? "saved" : "cloud-error");
   };
   const signOut = async () => { const supabase = getSupabaseBrowserClient(); await supabase?.auth.signOut(); router.replace("/"); router.refresh(); };
   const deleteAccount = async () => {
     if (!window.confirm("회원탈퇴하면 로그인 계정과 모든 학습 기록이 삭제됩니다. 계속할까요?")) return;
-    setStatus("deleting");
+    setDeleteStatus("deleting");
     const response = await fetch("/api/account/delete", { method: "DELETE" });
     if (!response.ok) {
-      setStatus("error");
+      setDeleteStatus("error");
       return;
     }
     clearUserState(user?.id);
@@ -68,10 +69,10 @@ export function ProfileScreen({ authEnabled }: { authEnabled: boolean }) {
         <Choice title="읽기 수준" items={readingOptions} value={draft.readingLevel} onChange={value => update("readingLevel", value as ReadingLevel)}/><Choice title="설명 난이도" items={explanationOptions} value={draft.explanationLevel} onChange={value => update("explanationLevel", value as ExplanationLevel)}/>
         <div className="mt-6"><p className="text-sm font-black">하루 뉴스 개수</p><div className="mt-2 grid grid-cols-5 gap-2">{[1,2,3,4,5].map(count => <button type="button" key={count} onClick={() => update("dailyArticleCount", count)} className={`h-11 rounded-xl border-2 font-black ${draft.dailyArticleCount === count ? "border-[var(--green)] bg-[var(--green-soft)] text-[var(--green-deep)]" : "border-[var(--line)]"}`}>{count}</button>)}</div></div>
         <div className="mt-6 flex items-center justify-between rounded-2xl bg-[#f7faf8] p-4"><div><p className="text-sm font-black">알림 시간</p><p className="mt-1 text-xs text-[var(--muted)]">알림 기능은 준비 중이에요.</p></div><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-[var(--muted)]">준비 중</span></div>
-        <button onClick={save} disabled={status === "saving" || !draft.nickname.trim() || draft.interests.length + draft.customInterests.length === 0} className="btn-primary mt-7 w-full">{status === "saving" ? "저장 중…" : "맞춤 설정 저장"}</button>{status === "saved" && <p className="mt-3 text-center text-sm font-bold text-[var(--green)]">저장했어요. 다음 뉴스에 반영할게요!</p>}{status === "error" && <p role="alert" className="mt-3 text-center text-sm font-bold text-[#a34737]">저장하지 못했어요. 잠시 후 다시 시도해주세요.</p>}
+        <button onClick={save} disabled={saveStatus === "saving" || !draft.nickname.trim() || draft.interests.length + draft.customInterests.length === 0} className="btn-primary mt-7 w-full">{saveStatus === "saving" ? "저장 중…" : "맞춤 설정 저장"}</button>{saveStatus === "saved" && <p className="mt-3 text-center text-sm font-bold text-[var(--green)]">저장했어요. 다음 뉴스에 반영할게요!</p>}{saveStatus === "cloud-error" && <p role="alert" className="mt-3 text-center text-sm font-bold text-[#a34737]">이 기기에는 저장했지만 계정 동기화에 실패했어요. 잠시 후 다시 시도해주세요.</p>}
       </section>
       <section className="card mt-6 p-5 sm:p-7"><h2 className="text-xl font-black">나의 성장</h2>{state.stats.xp || readCount ? <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><Stat label="연속 학습" value={`${state.stats.streak}일`}/><Stat label="총 XP" value={`${state.stats.xp}`}/><Stat label="읽은 뉴스" value={`${readCount}개`}/><Stat label="관심 분야" value={`${draft.interests.length + draft.customInterests.length}개`}/></div> : <p className="mt-4 rounded-2xl bg-[#f7faf8] p-5 text-sm font-bold text-[var(--muted)]">아직 학습 기록이 없어요. 오늘의 뉴스 한 장부터 시작해봐요.</p>}</section>
-      <section className="mt-6 rounded-[24px] border border-[#efd6d0] bg-white p-5 sm:p-7"><h2 className="text-lg font-black">계정</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><button onClick={signOut} className="min-h-12 rounded-2xl border-2 border-[var(--line)] bg-white font-black text-[var(--muted)] transition hover:bg-[#f7faf8]">로그아웃</button><button onClick={deleteAccount} disabled={status === "deleting"} className="min-h-12 rounded-2xl border-2 border-[#e8bdb3] bg-[#fff6f3] font-black text-[#a34737] transition hover:bg-[#ffede8]">{status === "deleting" ? "탈퇴 처리 중…" : "회원탈퇴"}</button></div>{status === "error" && <p role="alert" className="mt-3 text-center text-sm font-bold text-[#a34737]">회원탈퇴에 실패했어요. 서버 설정을 확인해 주세요.</p>}</section>
+      <section className="mt-6 rounded-[24px] border border-[#efd6d0] bg-white p-5 sm:p-7"><h2 className="text-lg font-black">계정</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><button onClick={signOut} className="min-h-12 rounded-2xl border-2 border-[var(--line)] bg-white font-black text-[var(--muted)] transition hover:bg-[#f7faf8]">로그아웃</button><button onClick={deleteAccount} disabled={deleteStatus === "deleting"} className="min-h-12 rounded-2xl border-2 border-[#e8bdb3] bg-[#fff6f3] font-black text-[#a34737] transition hover:bg-[#ffede8]">{deleteStatus === "deleting" ? "탈퇴 처리 중…" : "회원탈퇴"}</button></div>{deleteStatus === "error" && <p role="alert" className="mt-3 text-center text-sm font-bold text-[#a34737]">회원탈퇴에 실패했어요. 잠시 후 다시 시도해주세요.</p>}</section>
     </div>
   </main>;
 }
