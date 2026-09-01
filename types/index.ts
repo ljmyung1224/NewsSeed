@@ -85,7 +85,10 @@ export interface LearningStats {
   lastCompletedDate: string | null;
   completedDates: string[];
   articleCompletions: Record<string, string[]>;
+  missionRewards: Record<string, DailyMissionId[]>;
 }
+
+export type DailyMissionId = "read-two" | "quiz-two" | "explore-one";
 
 export interface AppState {
   profile: UserPreferences | null;

@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import type { AppState, Article, UserPreferences } from "@/types";
+import type { AppState, Article, SeedRecord, UserPreferences } from "@/types";
 import { selectDailyNews } from "@/services/news/selectDailyNews";
 import { TODAY } from "@/lib/date";
-import { clearAnonymousState, completeArticle, completeDay, initialStats, loadState, saveState, saveSeedRecord } from "@/lib/storage";
+import { clearAnonymousState, completeArticle, completeDailyMissions, completeDay, initialStats, loadSeedRecords, loadState, saveState, saveSeedRecord } from "@/lib/storage";
 import { OnboardingScreen } from "@/features/onboarding/onboarding-screen";
 import { HomeScreen } from "@/features/daily-news/home-screen";
 import { LessonScreen } from "@/features/daily-news/lesson-screen";
@@ -20,6 +20,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
   const [ready, setReady] = useState(false);
   const [screen, setScreen] = useState<Screen>({ name: "home" });
   const [earnedXp, setEarnedXp] = useState(0);
+  const [seedRecords, setSeedRecords] = useState<SeedRecord[]>([]);
   const [guestMode, setGuestMode] = useState(false);
   const [newsStatus, setNewsStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [newsRetry, setNewsRetry] = useState(0);
@@ -36,6 +37,7 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
       // Keep a locally edited profile usable even if remote sync is temporarily unavailable.
       const nextState = localState.profile ? { ...cloudState, ...localState, stats: cloudState?.stats ?? localState.stats } : (cloudState ?? localState);
       setState(nextState);
+      setSeedRecords(loadSeedRecords(user?.id));
       setReady(true);
       if (user && !cloudState) {
         const migrated = await saveCloudState(user.id, localState);
@@ -91,15 +93,23 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
     const newStats = completeArticle(state.stats, TODAY, articles[index].id);
     const completed = newStats.articleCompletions[TODAY] ?? [];
     const dayComplete = completed.length >= articles.length;
-    const nextStats = alreadyCompleted ? newStats : (dayComplete ? completeDay(newStats, TODAY) : newStats);
+    let nextStats = alreadyCompleted ? newStats : (dayComplete ? completeDay(newStats, TODAY) : newStats);
+    if (!alreadyCompleted) {
+      const completedAt = new Date().toISOString();
+      const provisionalRecord: SeedRecord = { article: articles[index], completedAt, xpEarned: 0, quizCompleted: true };
+      const nextRecords = [provisionalRecord, ...seedRecords];
+      nextStats = completeDailyMissions(nextStats, TODAY, nextRecords).stats;
+      const record = { ...provisionalRecord, xpEarned: nextStats.xp - state.stats.xp };
+      saveSeedRecord(record, user?.id);
+      setSeedRecords([record, ...seedRecords]);
+    }
     setEarnedXp(alreadyCompleted ? 0 : nextStats.xp - state.stats.xp);
-    if (!alreadyCompleted) saveSeedRecord({ article: articles[index], completedAt: new Date().toISOString(), xpEarned: nextStats.xp - state.stats.xp, quizCompleted: true }, user?.id);
     setState(current => ({ ...current, stats: nextStats }));
     setScreen({ name: "complete" });
   };
   if (screen.name === "lesson") return <LessonScreen key={articles[screen.index].id} article={articles[screen.index]} index={screen.index} total={articles.length} onBack={()=>setScreen({name:"home"})} onComplete={()=>finishArticle(screen.index)}/>;
   if (screen.name === "complete") return <CompletionScreen xp={state.stats.xp} streak={state.stats.streak} earnedXp={earnedXp} completedCount={(state.stats.articleCompletions[TODAY] ?? []).length} totalCount={articles.length} onHome={()=>setScreen({name:"home"})}/>;
-  return <HomeScreen profile={state.profile} stats={state.stats} articles={articles} accountLabel={user?.email ?? user?.user_metadata?.name} onStart={openNext} onOpenArticle={index=>setScreen({name:"lesson",index})} onAccount={() => router.push("/profile")}/>;
+  return <HomeScreen profile={state.profile} stats={state.stats} seedRecords={seedRecords} articles={articles} accountLabel={user?.email ?? user?.user_metadata?.name} onStart={openNext} onOpenArticle={index=>setScreen({name:"lesson",index})} onAccount={() => router.push("/profile")}/>;
 }
 
 function LoadingScreen({ label }: { label: string }) {

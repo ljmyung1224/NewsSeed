@@ -1,9 +1,10 @@
-import type { AppState, Category, LearningStats, UserPreferences } from "@/types";
+import type { AppState, Category, DailyMissionId, LearningStats, SeedRecord, UserPreferences } from "@/types";
 import { previousDate } from "@/lib/date";
+import { getCompletedMissionIds, missionDefinitions, recordDateKey } from "@/lib/growth";
 
 export const STORAGE_KEY = "newseed-state-v1";
 export const SEEDS_KEY = "newseed-seeds-v1";
-export const initialStats: LearningStats = { xp: 0, streak: 0, lastCompletedDate: null, completedDates: [], articleCompletions: {} };
+export const initialStats: LearningStats = { xp: 0, streak: 0, lastCompletedDate: null, completedDates: [], articleCompletions: {}, missionRewards: {} };
 
 function storageKey(userId?: string) { return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY; }
 function seedsKey(userId?: string) { return userId ? `${SEEDS_KEY}:${userId}` : SEEDS_KEY; }
@@ -15,7 +16,7 @@ export function loadSeedRecords(userId?: string): import("@/types").SeedRecord[]
 
 export function saveSeedRecord(record: import("@/types").SeedRecord, userId?: string) {
   const records = loadSeedRecords(userId);
-  if (records.some(item => item.article.id === record.article.id && item.completedAt.slice(0, 10) === record.completedAt.slice(0, 10))) return;
+  if (records.some(item => item.article.id === record.article.id && recordDateKey(item) === recordDateKey(record))) return;
   localStorage.setItem(seedsKey(userId), JSON.stringify([record, ...records].slice(0, 365)));
 }
 
@@ -59,7 +60,17 @@ export function completeArticle(stats: LearningStats, date: string, articleId: s
 
 export function normalizeLearningStats(stats: LearningStats): LearningStats {
   const articleCompletions = Object.fromEntries(Object.entries(stats.articleCompletions ?? {}).map(([date, ids]) => [date, [...new Set(ids)]]));
-  return { ...stats, articleCompletions };
+  const missionRewards = Object.fromEntries(Object.entries(stats.missionRewards ?? {}).map(([date, ids]) => [date, [...new Set(ids)].filter((id): id is DailyMissionId => missionDefinitions.some(mission => mission.id === id))]));
+  return { ...stats, articleCompletions, missionRewards };
+}
+
+export function completeDailyMissions(stats: LearningStats, date: string, records: SeedRecord[]): { stats: LearningStats; bonusXp: number; newlyCompleted: DailyMissionId[] } {
+  const rewarded = stats.missionRewards[date] ?? [];
+  const completed = getCompletedMissionIds(records, date);
+  const newlyCompleted = completed.filter(id => !rewarded.includes(id));
+  const bonusXp = missionDefinitions.filter(mission => newlyCompleted.includes(mission.id)).reduce((sum, mission) => sum + mission.rewardXp, 0);
+  if (!newlyCompleted.length) return { stats, bonusXp: 0, newlyCompleted: [] };
+  return { stats: { ...stats, xp: stats.xp + bonusXp, missionRewards: { ...stats.missionRewards, [date]: [...rewarded, ...newlyCompleted] } }, bonusXp, newlyCompleted };
 }
 
 export function completeDay(stats: LearningStats, date: string): LearningStats {
