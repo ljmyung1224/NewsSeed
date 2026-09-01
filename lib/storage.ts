@@ -14,10 +14,28 @@ export function loadSeedRecords(userId?: string): import("@/types").SeedRecord[]
   try { return JSON.parse(localStorage.getItem(seedsKey(userId)) ?? "[]") as import("@/types").SeedRecord[]; } catch { return []; }
 }
 
+export function seedRecordKey(record: SeedRecord) {
+  return `${record.article.id}:${recordDateKey(record)}`;
+}
+
+export function mergeSeedRecords(...collections: SeedRecord[][]): SeedRecord[] {
+  const merged = new Map<string, SeedRecord>();
+  collections.flat().forEach(record => {
+    if (!record?.article?.id || !record.completedAt) return;
+    const key = seedRecordKey(record);
+    if (!merged.has(key)) merged.set(key, record);
+  });
+  return [...merged.values()].sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+}
+
+export function replaceSeedRecords(records: SeedRecord[], userId?: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(seedsKey(userId), JSON.stringify(mergeSeedRecords(records).slice(0, 365)));
+}
+
 export function saveSeedRecord(record: import("@/types").SeedRecord, userId?: string) {
   const records = loadSeedRecords(userId);
-  if (records.some(item => item.article.id === record.article.id && recordDateKey(item) === recordDateKey(record))) return;
-  localStorage.setItem(seedsKey(userId), JSON.stringify([record, ...records].slice(0, 365)));
+  replaceSeedRecords([record, ...records], userId);
 }
 
 export function loadState(userId?: string): AppState {

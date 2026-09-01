@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AppState, Article, SeedRecord, UserPreferences } from "@/types";
 import { selectDailyNews } from "@/services/news/selectDailyNews";
 import { TODAY } from "@/lib/date";
-import { clearAnonymousState, completeArticle, completeDailyMissions, completeDay, initialStats, loadSeedRecords, loadState, saveState, saveSeedRecord } from "@/lib/storage";
+import { clearAnonymousState, completeArticle, completeDailyMissions, completeDay, initialStats, loadSeedRecords, loadState, mergeSeedRecords, replaceSeedRecords, saveState, saveSeedRecord } from "@/lib/storage";
 import { OnboardingScreen } from "@/features/onboarding/onboarding-screen";
 import { HomeScreen } from "@/features/daily-news/home-screen";
 import { LessonScreen } from "@/features/daily-news/lesson-screen";
@@ -11,6 +11,7 @@ import { CompletionScreen } from "@/features/daily-news/completion-screen";
 import { AuthScreen } from "@/features/auth/auth-screen";
 import { useAuth } from "@/features/auth/use-auth";
 import { loadCloudState, saveCloudState } from "@/services/user/userState";
+import { loadCloudSeedRecords, saveCloudSeedRecords } from "@/services/user/seedRecords";
 import { useRouter } from "next/navigation";
 type Screen = { name: "home" } | { name: "lesson"; index: number } | { name: "complete" };
 export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: Article[]; authEnabled: boolean }) {
@@ -32,12 +33,17 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
       const accountState = loadState(user?.id);
       const anonymousState = loadState();
       const localState = accountState.profile ? accountState : anonymousState;
-      const cloudState = user ? await loadCloudState(user.id) : null;
+      const accountSeeds = loadSeedRecords(user?.id);
+      const anonymousSeeds = user ? loadSeedRecords() : [];
+      const [cloudState, cloudSeeds] = user ? await Promise.all([loadCloudState(user.id), loadCloudSeedRecords(user.id)]) : [null, []];
       if (!active) return;
       // Keep a locally edited profile usable even if remote sync is temporarily unavailable.
       const nextState = localState.profile ? { ...cloudState, ...localState, stats: cloudState?.stats ?? localState.stats } : (cloudState ?? localState);
+      const mergedSeeds = mergeSeedRecords(accountSeeds, anonymousSeeds, cloudSeeds);
       setState(nextState);
-      setSeedRecords(loadSeedRecords(user?.id));
+      setSeedRecords(mergedSeeds);
+      replaceSeedRecords(mergedSeeds, user?.id);
+      if (user && (accountSeeds.length || anonymousSeeds.length)) void saveCloudSeedRecords(user.id, mergeSeedRecords(accountSeeds, anonymousSeeds));
       setReady(true);
       if (user && !cloudState) {
         const migrated = await saveCloudState(user.id, localState);
@@ -101,7 +107,8 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
       nextStats = completeDailyMissions(nextStats, TODAY, nextRecords).stats;
       const record = { ...provisionalRecord, xpEarned: nextStats.xp - state.stats.xp };
       saveSeedRecord(record, user?.id);
-      setSeedRecords([record, ...seedRecords]);
+      setSeedRecords(current => mergeSeedRecords([record], current));
+      if (user) void saveCloudSeedRecords(user.id, [record]);
     }
     setEarnedXp(alreadyCompleted ? 0 : nextStats.xp - state.stats.xp);
     setState(current => ({ ...current, stats: nextStats }));

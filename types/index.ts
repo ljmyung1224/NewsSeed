@@ -60,6 +60,7 @@ export interface SeedRecord {
   completedAt: string;
   xpEarned: number;
   quizCompleted: boolean;
+  kidArticleCacheKey?: string;
 }
 
 export interface UserPreferences {
