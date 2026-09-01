@@ -14,7 +14,7 @@ import { evaluateArticleSafety, isAllowedForGrade } from "@/services/news/evalua
 interface DailyNewsOptions {
   interests?: Category[]; difficulty?: GradeLevel; readingLevel?: ReadingLevel; explanationLevel?: ExplanationLevel;
   customInterests?: string[];
-  count?: number; live?: boolean; newsProvider?: NewsProvider; contentTransformer?: KidsContentTransformer; contentCache?: ArticleContentCache;
+  count?: number; live?: boolean; allowMockFallback?: boolean; newsProvider?: NewsProvider; contentTransformer?: KidsContentTransformer; contentCache?: ArticleContentCache;
 }
 
 type FallbackReason = NonNullable<Article["fallbackReason"]>;
@@ -23,10 +23,10 @@ type BuildArticleResult = { article: Article | null; failureReason?: FallbackRea
 const styleByCategory = new Map(categories.map(item => [item.name, item]));
 
 export async function getDailyNews(options: DailyNewsOptions = {}): Promise<Article[]> {
-  const { interests = [], customInterests = [], difficulty = "3-4", readingLevel = "normal", explanationLevel = "easy", count: requestedCount = 1, live = true, newsProvider = naverApiHubProvider, contentTransformer = geminiProvider, contentCache = memoryArticleCache } = options;
+  const { interests = [], customInterests = [], difficulty = "3-4", readingLevel = "normal", explanationLevel = "easy", count: requestedCount = 1, live = true, allowMockFallback = true, newsProvider = naverApiHubProvider, contentTransformer = geminiProvider, contentCache = memoryArticleCache } = options;
   const count = Math.min(5, Math.max(1, requestedCount));
   const preferences: ContentGenerationPreferences = { gradeLevel: difficulty, readingLevel, explanationLevel, interests, customInterests };
-  const fallback = (reason: FallbackReason) => selectDailyNews(mockArticles, interests, count).map(article => ({ ...article, fallbackReason: reason }));
+  const fallback = (reason: FallbackReason) => allowMockFallback ? selectDailyNews(mockArticles, interests, count).map(article => ({ ...article, fallbackReason: reason })) : [];
   if (!live) return fallback("live_disabled");
   if (!newsProvider.isConfigured() || !contentTransformer.isConfigured()) return fallback("missing_api_key");
 

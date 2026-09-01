@@ -31,7 +31,25 @@ export function saveState(state: AppState, userId?: string) {
   localStorage.setItem(storageKey(userId), JSON.stringify(state));
 }
 
-export function clearAnonymousState() { localStorage.removeItem(STORAGE_KEY); }
+export function clearAnonymousState() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(SEEDS_KEY);
+}
+
+export function clearUserState(userId?: string) {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(storageKey(userId));
+  localStorage.removeItem(seedsKey(userId));
+}
+
+export function clearAllLocalState() {
+  if (typeof window === "undefined") return;
+  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(STORAGE_KEY) || key?.startsWith(SEEDS_KEY)) localStorage.removeItem(key);
+  }
+}
 
 export function completeArticle(stats: LearningStats, date: string, articleId: string): LearningStats {
   const current = [...new Set(stats.articleCompletions[date] ?? [])];

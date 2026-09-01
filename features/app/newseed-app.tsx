@@ -21,6 +21,8 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
   const [screen, setScreen] = useState<Screen>({ name: "home" });
   const [earnedXp, setEarnedXp] = useState(0);
   const [guestMode, setGuestMode] = useState(false);
+  const [newsStatus, setNewsStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [newsRetry, setNewsRetry] = useState(0);
   const { user, ready: authReady } = useAuth(authEnabled);
   useEffect(() => {
     if (!authReady || (!user && !guestMode)) return;
@@ -51,15 +53,26 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
   }, [state, ready, user]);
   useEffect(() => {
     if (!ready || !state.profile) return;
+    let active = true;
     const controller = new AbortController();
     const params = new URLSearchParams({ difficulty: state.profile.gradeLevel, readingLevel: state.profile.readingLevel, explanationLevel: state.profile.explanationLevel, count: String(state.profile.dailyArticleCount), interests: state.profile.interests.join(","), customInterests: state.profile.customInterests.join(",") });
     fetch(`/api/daily-news?${params}`, { signal: controller.signal })
       .then(response => response.ok ? response.json() as Promise<{ articles: Article[] }> : Promise.reject(new Error(`Daily news responded with ${response.status}`)))
-      .then(data => { if (data.articles.length === state.profile?.dailyArticleCount) setAvailableArticles(data.articles); })
-      .catch(error => { if (error instanceof Error && error.name !== "AbortError") console.error("[NewsSeed] Using initial mock news.", error); });
-    return () => controller.abort();
-  }, [ready, state.profile]);
-  const articles = useMemo(() => selectDailyNews(availableArticles, state.profile?.interests ?? [], state.profile?.dailyArticleCount ?? 1), [availableArticles, state.profile?.dailyArticleCount, state.profile?.interests]);
+      .then(data => {
+        if (!active) return;
+        const liveArticles = data.articles.filter(article => article.sourceType === "news-api");
+        if (liveArticles.length !== state.profile?.dailyArticleCount) throw new Error("Live news count did not match the requested count");
+        setAvailableArticles(liveArticles);
+        setNewsStatus("ready");
+      })
+      .catch(error => {
+        if (!active || error instanceof Error && error.name === "AbortError") return;
+        console.error("[NewsSeed] Live news unavailable.", error);
+        setNewsStatus("error");
+      });
+    return () => { active = false; controller.abort(); };
+  }, [newsRetry, ready, state.profile]);
+  const articles = useMemo(() => selectDailyNews(availableArticles.filter(article => article.sourceType === "news-api"), state.profile?.interests ?? [], state.profile?.dailyArticleCount ?? 1), [availableArticles, state.profile?.dailyArticleCount, state.profile?.interests]);
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
     articles.forEach(article => console.info("[NewsSeed Article]", article.sourceType === "news-api" ? {
@@ -70,6 +83,8 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
   if (!user && !guestMode) return <AuthScreen configured={authEnabled} sampleArticles={initialArticles} onContinueAsGuest={() => setGuestMode(true)}/>;
   if (!ready) return <LoadingScreen label="나의 학습 기록을 불러오는 중"/>;
   if (!state.profile) return <OnboardingScreen onComplete={(profile: UserPreferences) => { setState(current => ({ ...current, profile })); setScreen({name:"home"}); }} />;
+  if (newsStatus === "idle" || newsStatus === "loading") return <LoadingScreen label="오늘의 뉴스를 준비하는 중"/>;
+  if (newsStatus === "error" || !articles.length) return <NewsUnavailableScreen onRetry={() => setNewsRetry(current => current + 1)}/>;
   const openNext = () => { const done = state.stats.articleCompletions[TODAY] ?? []; const next = articles.findIndex(article => !done.includes(article.id)); setScreen({ name: "lesson", index: next === -1 ? 0 : next }); };
   const finishArticle = (index: number) => {
     const alreadyCompleted = (state.stats.articleCompletions[TODAY] ?? []).includes(articles[index].id);
@@ -89,4 +104,8 @@ export function NewseedApp({ initialArticles, authEnabled }: { initialArticles: 
 
 function LoadingScreen({ label }: { label: string }) {
   return <div className="grid min-h-dvh place-items-center bg-[var(--cream)]"><div className="text-center"><div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#d9e7dc] border-t-[var(--green)]"/><p className="mt-4 text-sm font-bold text-[var(--muted)]">{label}</p></div></div>;
+}
+
+function NewsUnavailableScreen({ onRetry }: { onRetry: () => void }) {
+  return <div className="grid min-h-dvh place-items-center bg-[var(--cream)] px-5"><div className="card max-w-md p-8 text-center"><span className="text-4xl">📰</span><h1 className="mt-4 text-2xl font-black">오늘의 뉴스를 준비하지 못했어요</h1><p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">실제 뉴스 API에서 뉴스를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p><button onClick={onRetry} className="btn-primary mt-6 w-full">다시 불러오기</button></div></div>;
 }

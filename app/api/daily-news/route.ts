@@ -20,6 +20,6 @@ export async function GET(request: Request) {
   const count = Math.min(5, Math.max(1, Number.parseInt(params.get("count") ?? "3", 10) || 3));
   const interests = (params.get("interests") ?? "").split(",").filter((value): value is Category => validCategories.has(value as Category)).slice(0, 10);
   const customInterests = normalizeCustomInterests((params.get("customInterests") ?? "").split(","));
-  const articles = await getDailyNews({ interests, customInterests, difficulty, readingLevel, explanationLevel, count });
+  const articles = await getDailyNews({ interests, customInterests, difficulty, readingLevel, explanationLevel, count, allowMockFallback: false });
   return NextResponse.json({ articles }, { headers: { "Cache-Control": "private, max-age=300" } });
 }

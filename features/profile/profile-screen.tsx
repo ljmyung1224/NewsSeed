@@ -7,7 +7,7 @@ import { SproutLogo } from "@/components/brand";
 import { InterestSelector } from "@/components/interest-selector";
 import { useAuth } from "@/features/auth/use-auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { loadState, saveState } from "@/lib/storage";
+import { clearAllLocalState, clearUserState, loadState, saveState } from "@/lib/storage";
 import { loadCloudState, saveCloudState } from "@/services/user/userState";
 import type { AppState, ExplanationLevel, GradeLevel, ReadingLevel, UserPreferences } from "@/types";
 
@@ -20,7 +20,7 @@ export function ProfileScreen({ authEnabled }: { authEnabled: boolean }) {
   const { user, ready: authReady } = useAuth(authEnabled);
   const [state, setState] = useState<AppState | null>(null);
   const [draft, setDraft] = useState<UserPreferences | null>(null);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error" | "deleting">("idle");
   useEffect(() => { if (!authReady) return; if (authEnabled && !user) { router.replace("/"); return; } void (async () => { const local = user ? loadState(user.id) : loadState(); const next = user && !local.profile ? await loadCloudState(user.id) ?? local : local; setState(next); setDraft(next.profile); })(); }, [authEnabled, authReady, router, user]);
   const provider = providerLabel(user);
   const readCount = useMemo(() => state ? Object.values(state.stats.articleCompletions).reduce((sum, ids) => sum + ids.length, 0) : 0, [state]);
@@ -40,6 +40,21 @@ export function ProfileScreen({ authEnabled }: { authEnabled: boolean }) {
     setStatus("saved");
   };
   const signOut = async () => { const supabase = getSupabaseBrowserClient(); await supabase?.auth.signOut(); router.replace("/"); router.refresh(); };
+  const deleteAccount = async () => {
+    if (!window.confirm("회원탈퇴하면 로그인 계정과 모든 학습 기록이 삭제됩니다. 계속할까요?")) return;
+    setStatus("deleting");
+    const response = await fetch("/api/account/delete", { method: "DELETE" });
+    if (!response.ok) {
+      setStatus("error");
+      return;
+    }
+    clearUserState(user?.id);
+    clearAllLocalState();
+    const supabase = getSupabaseBrowserClient();
+    await supabase?.auth.signOut();
+    router.replace("/");
+    router.refresh();
+  };
   return <main className="profile-page min-h-dvh bg-[var(--cream)] pb-16">
     <header className="border-b border-[var(--line)] bg-white/90 px-5"><div className="mx-auto flex h-[68px] max-w-[900px] items-center justify-between"><SproutLogo/><button onClick={() => router.push("/")} className="btn-secondary min-h-10 px-4 text-sm">홈으로</button></div></header>
     <div className="mx-auto max-w-[900px] px-5 pt-8">
@@ -56,7 +71,7 @@ export function ProfileScreen({ authEnabled }: { authEnabled: boolean }) {
         <button onClick={save} disabled={status === "saving" || !draft.nickname.trim() || draft.interests.length + draft.customInterests.length === 0} className="btn-primary mt-7 w-full">{status === "saving" ? "저장 중…" : "맞춤 설정 저장"}</button>{status === "saved" && <p className="mt-3 text-center text-sm font-bold text-[var(--green)]">저장했어요. 다음 뉴스에 반영할게요!</p>}{status === "error" && <p role="alert" className="mt-3 text-center text-sm font-bold text-[#a34737]">저장하지 못했어요. 잠시 후 다시 시도해주세요.</p>}
       </section>
       <section className="card mt-6 p-5 sm:p-7"><h2 className="text-xl font-black">나의 성장</h2>{state.stats.xp || readCount ? <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><Stat label="연속 학습" value={`${state.stats.streak}일`}/><Stat label="총 XP" value={`${state.stats.xp}`}/><Stat label="읽은 뉴스" value={`${readCount}개`}/><Stat label="관심 분야" value={`${draft.interests.length + draft.customInterests.length}개`}/></div> : <p className="mt-4 rounded-2xl bg-[#f7faf8] p-5 text-sm font-bold text-[var(--muted)]">아직 학습 기록이 없어요. 오늘의 뉴스 한 장부터 시작해봐요.</p>}</section>
-      <section className="mt-6 rounded-[24px] border border-[#efd6d0] bg-white p-5 sm:p-7"><h2 className="text-lg font-black">계정</h2><button onClick={signOut} className="mt-4 min-h-12 w-full rounded-2xl border-2 border-[#e8bdb3] bg-[#fff6f3] font-black text-[#a34737] transition hover:bg-[#ffede8]">로그아웃</button></section>
+      <section className="mt-6 rounded-[24px] border border-[#efd6d0] bg-white p-5 sm:p-7"><h2 className="text-lg font-black">계정</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><button onClick={signOut} className="min-h-12 rounded-2xl border-2 border-[var(--line)] bg-white font-black text-[var(--muted)] transition hover:bg-[#f7faf8]">로그아웃</button><button onClick={deleteAccount} disabled={status === "deleting"} className="min-h-12 rounded-2xl border-2 border-[#e8bdb3] bg-[#fff6f3] font-black text-[#a34737] transition hover:bg-[#ffede8]">{status === "deleting" ? "탈퇴 처리 중…" : "회원탈퇴"}</button></div>{status === "error" && <p role="alert" className="mt-3 text-center text-sm font-bold text-[#a34737]">회원탈퇴에 실패했어요. 서버 설정을 확인해 주세요.</p>}</section>
     </div>
   </main>;
 }
