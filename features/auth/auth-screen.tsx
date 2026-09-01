@@ -42,7 +42,7 @@ export function AuthScreen({ configured, sampleArticles: availableSamples, onCon
   };
 
   return <main className="landing-shell min-h-dvh overflow-x-hidden bg-[var(--cream)] px-4 py-5 sm:px-6 sm:py-8 lg:grid lg:h-dvh lg:min-h-0 lg:place-items-center lg:overflow-y-hidden lg:px-8 lg:py-4">
-    <div className="landing-grid mx-auto grid w-full max-w-[1240px] gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(360px,.85fr)] lg:items-center lg:gap-8 xl:gap-10">
+    <div className="landing-grid mx-auto grid w-full max-w-[1240px] gap-6 lg:grid-cols-2 lg:items-center lg:gap-8 xl:gap-10">
       <section className="min-w-0">
         <header className="landing-intro">
           <div className="landing-enter landing-logo flex items-center gap-3"><SproutLogo compact/><div><p className="type-display text-xl leading-none text-[var(--ink)]">NewsSeed</p><p className="type-display mt-1 text-[11px] leading-none tracking-[.08em] text-[var(--muted)]">뉴씨드</p></div></div>
