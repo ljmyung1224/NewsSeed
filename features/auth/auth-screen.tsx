@@ -60,8 +60,8 @@ export function AuthScreen({ configured, sampleArticles: availableSamples, onCon
                 {position === 0 && <div key={`${article.id}-${slideDirection}`} className={`news-card-content sample-news-${slideDirection}`}>
                   <header className="news-card-header"><div><p>TODAY&apos;S NewsSeed</p><h2>오늘의 뉴씨드</h2></div><span>🌱</span></header>
                   <div className="news-card-body">
-                    <div className="news-card-meta"><span style={{ backgroundColor: `${article.color}18`, color: article.color }}>{article.emoji} {article.category}</span><b>{gradeLabels[article.difficulty]} · {article.estimatedReadingTime}분</b></div>
-                    <h3>{article.kidContent.title}</h3>
+                    <h3>{article.kidContent.title}<span className="news-title-category" style={{ backgroundColor: `${article.color}18`, color: article.color }}>{article.emoji} {article.category}</span></h3>
+                    <div className="news-card-meta mt-2 justify-end"><b>{gradeLabels[article.difficulty]} · {article.estimatedReadingTime}분</b></div>
                     <section><p>쉬운 설명</p><div className="line-clamp-2">{article.kidContent.easyExplanation[0]}</div></section>
                     <section className="news-why"><p>왜 중요할까요?</p><div className="line-clamp-2">{article.kidContent.whyItMatters[0]}</div></section>
                     <blockquote><small>오늘의 한 줄 🌱</small><span>{article.kidContent.keyTakeaway}</span></blockquote>

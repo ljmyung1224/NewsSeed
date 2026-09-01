@@ -21,8 +21,14 @@
 @media (max-width:480px){.landing-heading.type-display{font-size:29px;line-height:1.35}.type-display{overflow-wrap:anywhere}.article-copy{line-height:1.9}.news-card-body h3{font-size:19px}}
 
 /* Keep carousel controls clear of the card's rounded bottom corners. */
-.news-card-nav{margin-right:12px;margin-left:12px}
-@media (max-width:1023px){.news-card-nav{margin-right:6px;margin-left:6px}}
+.news-card-nav{flex-shrink:0;margin-right:24px;margin-bottom:18px;margin-left:24px;padding-bottom:18px}
+.news-card-content{overflow:hidden}
+.news-card-body{position:relative;overflow:hidden}
+.news-card-body > h3{margin-top:0}
+.news-title-category{display:inline-block;margin-left:10px;vertical-align:0.18em;border-radius:999px;padding:6px 10px;font-family:var(--font-body),sans-serif;font-size:11px;font-weight:900;line-height:1;white-space:nowrap}
+.news-card-body blockquote{margin-bottom:72px}
+.news-card-nav{position:absolute;right:24px;bottom:16px;left:24px;margin:0;padding:0}
+@media (max-width:1023px){.news-card-nav{right:14px;bottom:12px;left:14px;margin:0;padding:0}}
 
 .article-lead{font-family:var(--font-body),"Apple SD Gothic Neo","Noto Sans KR",sans-serif;max-width:38rem}
 .article-hero{border:1px solid var(--line);box-shadow:0 8px 0 rgba(213,224,216,.55)}
