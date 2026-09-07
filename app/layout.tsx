@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { cafe24Ssurround, pretendard } from "./fonts";
+
+const GOOGLE_ANALYTICS_ID = "G-4PS1Y6MHDC";
 
 export const metadata: Metadata = {
   title: "뉴씨드 | 하루 한 장, 생각이 자라는 뉴스",
@@ -14,6 +17,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${pretendard.variable} ${cafe24Ssurround.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`}
+      />
+      <Script id="google-analytics">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${GOOGLE_ANALYTICS_ID}');
+        `}
+      </Script>
     </html>
   );
 }
